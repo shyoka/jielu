@@ -1,0 +1,78 @@
+plugins {
+    id "com.android.application"
+}
+
+// 正式签名信息放在 android/keystore.properties（已被 .gitignore 排除）。
+// 开源仓库里没有这个文件，release 会自动退化成本地构建、不签名。
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+def hasKeystore = keystoreProps.getProperty("storeFile") != null
+        && rootProject.file(keystoreProps.getProperty("storeFile")).exists()
+
+android {
+    namespace "com.jielu.timetable"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.jielu.timetable"
+        minSdk 24
+        targetSdk 34
+        versionCode 3
+        versionName "1.2.0"
+        resConfigs "zh", "en"
+    }
+
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword keystoreProps.getProperty("storePassword")
+                keyAlias keystoreProps.getProperty("keyAlias")
+                keyPassword keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ["META-INF/*.kotlin_module"]
+        }
+    }
+}
+
+// 构建前从仓库根目录同步网页，保证 APK 内的页面始终是最新版本
+def webSourceDir = rootProject.projectDir.parentFile
+
+tasks.register("syncWebAssets", Sync) {
+    from(webSourceDir) {
+        include "index.html"
+        include "watch.html"
+        include "assets/**"
+    }
+    into "src/main/assets/www"
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("syncWebAssets")
+}

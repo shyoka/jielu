@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-palette="clay">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="节律手表端 —— OLED 纯黑、分钟级刷新的课程表。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%238A4B3B'/%3E%3Cpath d='M15 40c5-14 10-14 15 0s10 14 19 0' fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='47' cy='20' r='3.4' fill='%23fff'/%3E%3C/svg%3E" />
+  <title>节律 · 手表端</title>
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem("jielu.prefs.v1");
+        var prefs = raw ? JSON.parse(raw) : {};
+        var palette = prefs.palette || "clay";
+        if (["clay", "moss", "iris", "tide"].indexOf(palette) === -1) palette = "clay";
+        document.documentElement.dataset.palette = palette;
+        document.documentElement.dataset.theme = "dark";
+      } catch (error) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/tokens.css" />
+  <link rel="stylesheet" href="assets/watch.css" />
+</head>
+<body>
+  <div class="watch-page">
+    <main class="watch" id="watchFace" role="button" tabindex="0" aria-label="轻触查看今日安排">
+      <svg class="watch-progress" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="watch-track" cx="50" cy="50" r="47.6"></circle>
+        <circle class="watch-arc" id="watchArc" cx="50" cy="50" r="47.6"></circle>
+      </svg>
+
+      <div class="watch-content">
+        <header class="watch-top">
+          <span class="watch-date" id="watchDate">11 月 13 日 · 周五</span>
+          <span class="watch-clock num" data-clock>10:37</span>
+        </header>
+
+        <section class="watch-now" id="nowView" aria-label="此刻的课程">
+          <div class="watch-status">
+            <span class="watch-status-dot"></span>
+            <span id="statusText">正在上课</span>
+          </div>
+          <h1 class="watch-course" id="courseName">交互设计基础</h1>
+          <p class="watch-meta" id="courseMeta">创新工坊 301 · 周野</p>
+          <div class="watch-focus" id="watchFocus">
+            <b id="bigValue">63</b>
+            <span id="bigLabel">分钟后下课</span>
+          </div>
+        </section>
+
+        <section class="watch-agenda" id="agendaView" aria-hidden="true">
+          <div class="watch-agenda-head">
+            <span>今日安排</span>
+            <span id="agendaCount">4 节</span>
+          </div>
+          <div class="watch-agenda-rows" id="agendaRows"></div>
+        </section>
+
+        <footer class="watch-bottom">
+          <div class="watch-next" id="nextBlock">
+            <span id="nextLabel">下一节</span>
+            <b id="nextValue">14:00 · 信息可视化</b>
+          </div>
+          <div class="watch-agenda-foot" id="agendaFoot">
+            <span>今日 · <b id="agendaFootCount">4</b> 节</span>
+            <span>分钟刷新</span>
+          </div>
+        </footer>
+
+        <div class="watch-dots" aria-hidden="true">
+          <i class="is-active"></i><i></i>
+        </div>
+      </div>
+    </main>
+    <p class="watch-caption" aria-hidden="true">节律 · WEAR OS · 454 × 454</p>
+  </div>
+
+  <script src="assets/schedule.js"></script>
+  <script src="assets/watch.js"></script>
+</body>
+</html>

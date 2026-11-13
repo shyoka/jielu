@@ -1,0 +1,449 @@
+/* 节律 · Wear OS 表盘 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 44%, #171311 0%, #080606 56%, #000 100%);
+  color: #f5eee8;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.watch-page {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.watch {
+  position: relative;
+  isolation: isolate;
+  width: min(100vmin, 454px);
+  height: min(100vmin, 454px);
+  overflow: hidden;
+  border-radius: 50%;
+  background: #000;
+  container-type: size;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.watch:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.watch-progress {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.watch-track,
+.watch-arc {
+  fill: none;
+  stroke-width: 1.15;
+}
+
+.watch-track {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.watch-arc {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  opacity: 0.92;
+}
+
+.watch-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14.5cqw 16.5cqw 14.5cqw;
+}
+
+.watch-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  min-height: 4cqw;
+  margin-inline: 4.7cqw;
+  color: rgba(245, 238, 232, 0.48);
+  font-size: 3cqw;
+  font-weight: 530;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.watch-clock {
+  color: rgba(245, 238, 232, 0.82);
+  font-family: "Manrope", sans-serif;
+  font-size: 3.2cqw;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.watch-now {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1cqw;
+  text-align: center;
+}
+
+.watch-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5cqw;
+  margin-bottom: 2.4cqw;
+  color: var(--primary);
+  font-size: 2.85cqw;
+  font-weight: 640;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+}
+
+.watch-status-dot {
+  position: relative;
+  width: 1.2cqw;
+  height: 1.2cqw;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.watch-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: -1.2cqw;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+
+.watch-course {
+  display: -webkit-box;
+  overflow: hidden;
+  max-width: 66cqw;
+  margin: 0;
+  color: #f8f1ec;
+  font-size: 7.2cqw;
+  font-weight: 580;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.watch-meta {
+  overflow: hidden;
+  max-width: 64cqw;
+  margin: 1.6cqw 0 0;
+  color: rgba(245, 238, 232, 0.46);
+  font-size: 2.9cqw;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.watch-focus {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1.2cqw;
+  margin-top: 3.3cqw;
+  color: var(--primary);
+}
+
+.watch-focus b {
+  font-family: "Manrope", sans-serif;
+  font-size: 8.4cqw;
+  font-weight: 720;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-focus span {
+  color: rgba(245, 238, 232, 0.45);
+  font-size: 2.5cqw;
+  font-weight: 520;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.watch-focus.is-time b {
+  font-size: 6.4cqw;
+  letter-spacing: -0.04em;
+}
+
+.watch-focus.is-dash b {
+  font-size: 7cqw;
+  opacity: 0.5;
+}
+
+/* 今日安排视图 */
+
+.watch-agenda {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0.5cqw 0 0;
+}
+
+.watch.is-agenda .watch-now {
+  display: none;
+}
+
+.watch.is-agenda .watch-agenda {
+  display: flex;
+}
+
+.watch-agenda-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 0 1.5cqw 1.9cqw;
+  color: rgba(245, 238, 232, 0.42);
+  font-size: 2.5cqw;
+  font-weight: 560;
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+}
+
+.watch-agenda-head span:last-child {
+  color: rgba(245, 238, 232, 0.52);
+}
+
+.watch-agenda-rows {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.8cqw;
+  overflow: hidden;
+}
+
+.watch-agenda-row {
+  display: grid;
+  grid-template-columns: 12cqw minmax(0, 1fr) 1.5cqw;
+  align-items: center;
+  gap: 2.2cqw;
+  min-height: 9cqw;
+  padding: 0.9cqw 2.2cqw;
+  border-radius: 3.3cqw;
+  color: rgba(245, 238, 232, 0.74);
+}
+
+.watch-agenda-row.is-active {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.watch-agenda-row.is-past {
+  color: rgba(245, 238, 232, 0.36);
+}
+
+.watch-agenda-time {
+  color: rgba(245, 238, 232, 0.4);
+  font-family: "Manrope", sans-serif;
+  font-size: 2.55cqw;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-agenda-row.is-active .watch-agenda-time {
+  color: var(--primary);
+}
+
+.watch-agenda-name {
+  overflow: hidden;
+  font-size: 3.05cqw;
+  font-weight: 560;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.watch-agenda-dot {
+  width: 1.15cqw;
+  height: 1.15cqw;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.watch-agenda-row.is-active .watch-agenda-dot {
+  background: var(--primary);
+}
+
+.watch-agenda-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.3cqw;
+  flex: 1;
+  color: rgba(245, 238, 232, 0.48);
+  font-size: 2.8cqw;
+  line-height: 1.5;
+}
+
+.watch-agenda-empty b {
+  color: rgba(245, 238, 232, 0.82);
+  font-size: 3.9cqw;
+  font-weight: 560;
+}
+
+/* 底部与页标 */
+
+.watch-bottom {
+  flex: none;
+  margin-inline: 4.7cqw;
+  padding-top: 2.2cqw;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.watch-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+  min-width: 0;
+}
+
+.watch-next span {
+  color: rgba(245, 238, 232, 0.46);
+  font-size: 2.35cqw;
+  font-weight: 550;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+
+.watch-next b {
+  overflow: hidden;
+  color: rgba(245, 238, 232, 0.8);
+  font-size: 2.9cqw;
+  font-weight: 550;
+  line-height: 1.35;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.watch-agenda-foot {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+  color: rgba(245, 238, 232, 0.46);
+  font-size: 2.35cqw;
+  font-weight: 550;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+}
+
+.watch-agenda-foot b {
+  color: rgba(245, 238, 232, 0.72);
+  font-weight: 620;
+}
+
+.watch.is-agenda .watch-next {
+  display: none;
+}
+
+.watch.is-agenda .watch-agenda-foot {
+  display: flex;
+}
+
+.watch-dots {
+  position: absolute;
+  right: 0;
+  bottom: 3.7cqw;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2cqw;
+  pointer-events: none;
+}
+
+.watch-dots i {
+  width: 1.1cqw;
+  height: 1.1cqw;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.watch-dots i.is-active {
+  width: 3.4cqw;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 78%, transparent);
+}
+
+.watch-caption {
+  display: none;
+}
+
+@media (min-width: 700px) {
+  .watch {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.075),
+      0 48px 110px -42px rgba(255, 164, 145, 0.16),
+      0 0 160px -60px rgba(255, 164, 145, 0.12);
+  }
+
+  .watch-caption {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    display: block;
+    margin: 0;
+    color: rgba(245, 238, 232, 0.23);
+    font-family: "Manrope", sans-serif;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch {
+    scroll-behavior: auto;
+  }
+}

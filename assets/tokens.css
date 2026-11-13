@@ -1,0 +1,219 @@
+@font-face {
+  font-family: "Manrope";
+  src: url("./fonts/manrope-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --font-sans: "Manrope", "Noto Sans SC", "Noto Sans CJK SC", "PingFang SC",
+    "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  --ease-out: cubic-bezier(0.2, 0.75, 0.2, 1);
+  --ease-spring: cubic-bezier(0.18, 0.89, 0.32, 1.08);
+
+  --primary: #8a4b3b;
+  --on-primary: #ffffff;
+  --primary-container: #ffdad2;
+  --on-primary-container: #3b0a00;
+  --secondary: #6f5a52;
+  --on-secondary: #ffffff;
+  --secondary-container: #f5ddd5;
+  --on-secondary-container: #2a1510;
+  --tertiary: #6c5c2e;
+  --tertiary-container: #f6e2a9;
+  --on-tertiary-container: #221a00;
+
+  --on-surface: #201a18;
+  --on-surface-variant: #5c4a44;
+  --outline: #8b7670;
+  --outline-variant: color-mix(in srgb, var(--primary) 18%, #ddd2cb);
+  --inverse-surface: #342c29;
+  --inverse-on-surface: #f8eee9;
+  --danger: #ba1a1a;
+
+  --surface: color-mix(in oklab, var(--primary) 2.5%, #fdfaf7);
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: color-mix(in oklab, var(--primary) 4.5%, #faf4ef);
+  --surface-container: color-mix(in oklab, var(--primary) 7%, #f5ede7);
+  --surface-container-high: color-mix(in oklab, var(--primary) 10%, #efe5de);
+  --surface-container-highest: color-mix(in oklab, var(--primary) 13%, #e9dfd8);
+  --surface-dim: color-mix(in oklab, var(--primary) 8%, #e2d6ce);
+
+  --shadow-color: rgba(40, 22, 14, 0.16);
+  --glass: color-mix(in srgb, var(--surface) 84%, transparent);
+
+  --course-clay: #ad5841;
+  --course-sage: #56745b;
+  --course-sky: #477087;
+  --course-iris: #6e5b93;
+  --course-amber: #95702e;
+  --course-rose: #a15968;
+
+  color-scheme: light;
+}
+
+[data-palette="moss"] {
+  --primary: #3f6450;
+  --on-primary: #ffffff;
+  --primary-container: #c1ebd6;
+  --on-primary-container: #002114;
+  --secondary: #52655b;
+  --on-secondary: #ffffff;
+  --secondary-container: #d7e9df;
+  --on-secondary-container: #0f1f17;
+  --tertiary: #6c5d2e;
+  --tertiary-container: #f3e1a8;
+  --on-tertiary-container: #221a00;
+}
+
+[data-palette="iris"] {
+  --primary: #5d4c80;
+  --on-primary: #ffffff;
+  --primary-container: #e9ddff;
+  --on-primary-container: #1b0a36;
+  --secondary: #655a70;
+  --on-secondary: #ffffff;
+  --secondary-container: #ebdff1;
+  --on-secondary-container: #1e1725;
+  --tertiary: #795735;
+  --tertiary-container: #ffdcb8;
+  --on-tertiary-container: #2a1600;
+}
+
+[data-palette="tide"] {
+  --primary: #3b6076;
+  --on-primary: #ffffff;
+  --primary-container: #c7e7fa;
+  --on-primary-container: #001e2c;
+  --secondary: #50626c;
+  --on-secondary: #ffffff;
+  --secondary-container: #d3e5f0;
+  --on-secondary-container: #0b1d26;
+  --tertiary: #615b2f;
+  --tertiary-container: #e9e2aa;
+  --on-tertiary-container: #1d1c00;
+}
+
+[data-theme="dark"] {
+  --on-surface: #f2e9e4;
+  --on-surface-variant: #d3c3bc;
+  --outline: #a08b83;
+  --outline-variant: color-mix(in srgb, var(--primary) 20%, #4b403b);
+  --inverse-surface: #f2e9e4;
+  --inverse-on-surface: #2d2522;
+  --danger: #ffb4ab;
+
+  --surface: color-mix(in oklab, var(--primary) 3%, #151110);
+  --surface-container-lowest: #0e0c0b;
+  --surface-container-low: color-mix(in oklab, var(--primary) 5%, #1b1715);
+  --surface-container: color-mix(in oklab, var(--primary) 8%, #211c1a);
+  --surface-container-high: color-mix(in oklab, var(--primary) 11%, #2a2421);
+  --surface-container-highest: color-mix(in oklab, var(--primary) 14%, #332c29);
+  --surface-dim: color-mix(in oklab, var(--primary) 5%, #0f0c0b);
+
+  --shadow-color: rgba(0, 0, 0, 0.48);
+  --glass: color-mix(in srgb, var(--surface) 82%, transparent);
+
+  --course-clay: #ffb4a4;
+  --course-sage: #a9d5b3;
+  --course-sky: #9fcfe8;
+  --course-iris: #cfbdf8;
+  --course-amber: #ebc77e;
+  --course-rose: #f1b7c2;
+
+  color-scheme: dark;
+}
+
+[data-theme="dark"][data-palette="clay"] {
+  --primary: #ffb4a4;
+  --on-primary: #552014;
+  --primary-container: #703528;
+  --on-primary-container: #ffdad2;
+  --secondary: #e4beb4;
+  --on-secondary: #402a23;
+  --secondary-container: #594139;
+  --on-secondary-container: #ffdad2;
+  --tertiary: #dfc98f;
+  --on-tertiary: #392f00;
+  --tertiary-container: #52461a;
+  --on-tertiary-container: #fce7aa;
+}
+
+[data-theme="dark"][data-palette="moss"] {
+  --primary: #a6d2b8;
+  --on-primary: #0b3724;
+  --primary-container: #264f3c;
+  --on-primary-container: #c2ecd7;
+  --secondary: #b8cdc0;
+  --on-secondary: #23342a;
+  --secondary-container: #394b40;
+  --on-secondary-container: #d4e9df;
+  --tertiary: #d8c78d;
+  --on-tertiary: #383000;
+  --tertiary-container: #4f451d;
+  --on-tertiary-container: #f4e2a4;
+}
+
+[data-theme="dark"][data-palette="iris"] {
+  --primary: #cfbef9;
+  --on-primary: #2e1d4b;
+  --primary-container: #453463;
+  --on-primary-container: #e9ddff;
+  --secondary: #cdc1d9;
+  --on-secondary: #332d3a;
+  --secondary-container: #4a4453;
+  --on-secondary-container: #ebdff1;
+  --tertiary: #e7c28c;
+  --on-tertiary: #432b00;
+  --tertiary-container: #604a23;
+  --on-tertiary-container: #ffdcb8;
+}
+
+[data-theme="dark"][data-palette="tide"] {
+  --primary: #a1cee5;
+  --on-primary: #053346;
+  --primary-container: #234c5f;
+  --on-primary-container: #c7e7fa;
+  --secondary: #b8c9d3;
+  --on-secondary: #22333b;
+  --secondary-container: #384a53;
+  --on-secondary-container: #d3e5f0;
+  --tertiary: #cdc990;
+  --on-tertiary: #323100;
+  --tertiary-container: #4a481e;
+  --on-tertiary-container: #e9e2aa;
+}
+
+.c-clay {
+  --course: var(--course-clay);
+}
+.c-sage {
+  --course: var(--course-sage);
+}
+.c-sky {
+  --course: var(--course-sky);
+}
+.c-iris {
+  --course: var(--course-iris);
+}
+.c-amber {
+  --course: var(--course-amber);
+}
+.c-rose {
+  --course: var(--course-rose);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

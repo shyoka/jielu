@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-palette="clay">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fdfaf7" />
+  <meta name="description" content="节律 —— 一款为小屏手机与手表设计的 Material You 课程表。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%238A4B3B'/%3E%3Cpath d='M15 40c5-14 10-14 15 0s10 14 19 0' fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='47' cy='20' r='3.4' fill='%23fff'/%3E%3C/svg%3E" />
+  <title>节律 · 课程表</title>
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem("jielu.prefs.v1");
+        var prefs = raw ? JSON.parse(raw) : {};
+        var theme = prefs.theme || "auto";
+        var palette = prefs.palette || "clay";
+        if (["clay", "moss", "iris", "tide"].indexOf(palette) === -1) palette = "clay";
+        var dark = theme === "dark" || (theme === "auto" &&
+          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        document.documentElement.dataset.palette = palette;
+        if (location.search.indexOf("app=1") !== -1) {
+          document.documentElement.dataset.native = "1";
+        }
+      } catch (error) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/tokens.css" />
+  <link rel="stylesheet" href="assets/app.css" />
+</head>
+<body>
+  <svg class="icon-sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-calendar" viewBox="0 0 24 24">
+        <rect x="3.25" y="4.75" width="17.5" height="16" rx="3.5"></rect>
+        <path d="M8 3v3.5M16 3v3.5M3.25 9.75h17.5"></path>
+      </symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24">
+        <rect x="3.5" y="3.5" width="7" height="7" rx="2.2"></rect>
+        <rect x="13.5" y="3.5" width="7" height="7" rx="2.2"></rect>
+        <rect x="3.5" y="13.5" width="7" height="7" rx="2.2"></rect>
+        <rect x="13.5" y="13.5" width="7" height="7" rx="2.2"></rect>
+      </symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24">
+        <path d="M4 7h9.5M18.5 7H20M4 17h2.5M11.5 17H20"></path>
+        <circle cx="16" cy="7" r="2.5"></circle>
+        <circle cx="8" cy="17" r="2.5"></circle>
+      </symbol>
+      <symbol id="i-watch" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7"></circle>
+        <path d="M9 2.5h6M9 21.5h6M12 9v3.4l2.1 1.3"></path>
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5"></circle>
+        <path d="M12 7.5V12l3 2"></path>
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path d="M12 21s6.3-5.3 6.3-10.2A6.3 6.3 0 0 0 5.7 10.8C5.7 15.7 12 21 12 21Z"></path>
+        <circle cx="12" cy="10.7" r="2.2"></circle>
+      </symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24">
+        <path d="m9 5 7 7-7 7"></path>
+      </symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24">
+        <path d="m15 5-7 7 7 7"></path>
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24">
+        <path d="M5 12h14M13 6l6 6-6 6"></path>
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14"></path>
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24">
+        <path d="M4 20h4.2L19 9.2a2.1 2.1 0 0 0-3-3L5.2 17.1 4 20Z"></path>
+        <path d="m14.8 7.5 2.7 2.7"></path>
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4.5 6.5h15M9 6.5V4.8A1.3 1.3 0 0 1 10.3 3.5h3.4A1.3 1.3 0 0 1 15 4.8v1.7"></path>
+        <path d="M6.5 6.5 7.4 19a1.6 1.6 0 0 0 1.6 1.5h6a1.6 1.6 0 0 0 1.6-1.5l.9-12.5"></path>
+        <path d="M10 10.5v6M14 10.5v6"></path>
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 4v10M8 10.5l4 4 4-4"></path>
+        <path d="M4.5 17.5v1.2A1.3 1.3 0 0 0 5.8 20h12.4a1.3 1.3 0 0 0 1.3-1.3v-1.2"></path>
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M18 6 6 18"></path>
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m4.5 12.5 5 5 10-11"></path>
+      </symbol>
+      <symbol id="i-leaf" viewBox="0 0 24 24">
+        <path d="M20.5 3.5C11 3.5 4.5 8.3 4.5 15.4c0 2.4 1.7 4.1 4.1 4.1 7.1 0 11.9-6.5 11.9-16Z"></path>
+        <path d="M3.5 21c2.3-5.6 6.1-9 11.8-11.6"></path>
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5"></circle>
+        <path d="M5 20c.4-3.6 3.1-5.6 7-5.6s6.6 2 7 5.6"></path>
+      </symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24">
+        <path d="M18 8.5a6 6 0 0 0-12 0c0 7-2.5 6.5-2.5 8.5h17c0-2-2.5-1.5-2.5-8.5Z"></path>
+        <path d="M10 21h4"></path>
+      </symbol>
+      <symbol id="i-volume-off" viewBox="0 0 24 24">
+        <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"></path>
+        <path d="m16 9.5 4 5M20 9.5l-4 5"></path>
+      </symbol>
+      <symbol id="i-palette" viewBox="0 0 24 24">
+        <path d="M12 3.2a8.8 8.8 0 1 0 0 17.6c1.2 0 2-.8 2-1.9 0-.5-.2-.9-.5-1.3-.2-.3-.3-.6-.3-1 0-.8.7-1.5 1.5-1.5h1.4a5.1 5.1 0 0 0 5.1-5.1c0-3.8-4.1-6.8-9.2-6.8Z"></path>
+        <circle cx="7.3" cy="11" r=".9" fill="currentColor" stroke="none"></circle>
+        <circle cx="9.4" cy="7.3" r=".9" fill="currentColor" stroke="none"></circle>
+        <circle cx="13.7" cy="6.6" r=".9" fill="currentColor" stroke="none"></circle>
+        <circle cx="16.7" cy="9.7" r=".9" fill="currentColor" stroke="none"></circle>
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5a8.5 8.5 0 1 0 11.7 11.7Z"></path>
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4.2"></circle>
+        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+      </symbol>
+      <symbol id="i-battery" viewBox="0 0 24 24">
+        <rect x="2.75" y="7.5" width="17" height="9" rx="2.5"></rect>
+        <path d="M22 10.5v3"></path>
+        <path d="M6 10.5h8.5" stroke-width="3"></path>
+      </symbol>
+      <symbol id="i-book" viewBox="0 0 24 24">
+        <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12.5v18H7a2.5 2.5 0 0 1-2.5-2.5v-13Z"></path>
+        <path d="M4.5 18.5A2.5 2.5 0 0 1 7 16h12.5"></path>
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3Z"></path>
+        <path d="m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"></path>
+      </symbol>
+      <symbol id="i-wifi" viewBox="0 0 24 24">
+        <path d="M3.5 9.2a13.1 13.1 0 0 1 17 0M6.6 12.7a8.4 8.4 0 0 1 10.8 0M9.7 16.1a3.7 3.7 0 0 1 4.6 0"></path>
+        <circle cx="12" cy="19.3" r=".9" fill="currentColor" stroke="none"></circle>
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="4.5" y="10.5" width="15" height="10" rx="3"></rect>
+        <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"></path>
+      </symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24">
+        <path d="M20.4 5.7a5.1 5.1 0 0 0-7.2 0L12 6.9l-1.2-1.2a5.1 5.1 0 1 0-7.2 7.2L12 21l8.4-8.1a5.1 5.1 0 0 0 0-7.2Z"></path>
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path d="M12 3 5 6v5.2c0 4.4 2.9 8.3 7 9.8 4.1-1.5 7-5.4 7-9.8V6l-7-3Z"></path>
+        <path d="m9 12 2 2 4-4.2"></path>
+      </symbol>
+      <symbol id="i-external" viewBox="0 0 24 24">
+        <path d="M14 4h6v6M20 4l-8 8"></path>
+        <path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"></path>
+      </symbol>
+      <symbol id="i-github" viewBox="0 0 24 24">
+        <path d="M9 19.2c-4.4 1.35-4.4-2.25-6.2-2.7m12.4 5.1v-3.5a3 3 0 0 0-.85-2.35c2.8-.3 5.75-1.4 5.75-6.25a4.9 4.9 0 0 0-1.35-3.4 4.55 4.55 0 0 0-.1-3.35s-1.1-.35-3.55 1.3a12.4 12.4 0 0 0-6.2 0C6.45 1 5.35 1.35 5.35 1.35a4.55 4.55 0 0 0-.1 3.35A4.9 4.9 0 0 0 3.9 8.1c0 4.8 2.95 5.95 5.75 6.25A3 3 0 0 0 8.8 16.7v3.5"></path>
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="9" y="9" width="11" height="11" rx="2.6"></rect>
+        <path d="M15 5.6A1.6 1.6 0 0 0 13.4 4H5.6A1.6 1.6 0 0 0 4 5.6v7.8A1.6 1.6 0 0 0 5.6 15"></path>
+      </symbol>
+    </defs>
+  </svg>
+
+  <main class="stage">
+    <aside class="intro" aria-label="设计说明">
+      <div class="intro-brand">
+        <span class="brand-mark brand-mark--lg" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M5.6 14.8c1.9-5.1 3.5-5.1 5.4 0s3.5 5.1 5.4 0" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"></path>
+            <circle cx="17.7" cy="6.7" r="1.4" fill="currentColor"></circle>
+          </svg>
+        </span>
+        <span class="intro-brand-copy"><b>节律</b><small>JIELU · TIMETABLE</small></span>
+      </div>
+
+      <div class="intro-body">
+        <p class="intro-kicker">MATERIAL YOU · SMALL & WEAR</p>
+        <h1>把一周的节奏，<br /><span>收进掌心。</span></h1>
+        <p class="intro-lead">为小屏与手表重新排版的课程表。没有启动页，没有多余的打扰。进入，就是今天。</p>
+
+        <div class="feature-list">
+          <div class="feature">
+            <span class="feature-index">01</span>
+            <div><b>进入，即课表</b><p>第一眼就是今天，上下滑动读完一天的安排。</p></div>
+          </div>
+          <div class="feature">
+            <span class="feature-index">02</span>
+            <div><b>左右，是时间</b><p>课表、日历、设置排成一条安静的轴，轻轻一划就到位。</p></div>
+          </div>
+          <div class="feature">
+            <span class="feature-index">03</span>
+            <div><b>手腕上的克制</b><p>OLED 纯黑、分钟级刷新，不为了动而动。</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="intro-foot">
+        <div class="intro-palette">
+          <span class="intro-palette-label">主题色</span>
+          <div class="intro-swatches" role="group" aria-label="切换主题色">
+            <button class="intro-swatch is-active" style="--swatch: #ad5841" data-intro-palette="clay" aria-label="陶土" aria-pressed="true"></button>
+            <button class="intro-swatch" style="--swatch: #4f715b" data-intro-palette="moss" aria-label="苔藓" aria-pressed="false"></button>
+            <button class="intro-swatch" style="--swatch: #6f5b93" data-intro-palette="iris" aria-label="鸢尾" aria-pressed="false"></button>
+            <button class="intro-swatch" style="--swatch: #456b81" data-intro-palette="tide" aria-label="海盐" aria-pressed="false"></button>
+          </div>
+          <span class="intro-palette-name" id="introPaletteName">陶土</span>
+        </div>
+        <p class="gesture-hint"><span>↕ 浏览</span><span>↔ 切换</span></p>
+      </div>
+    </aside>
+
+    <section class="phone-wrap" aria-label="手机端应用预览">
+      <div class="phone">
+        <div class="screen">
+          <div class="device-status" aria-hidden="true">
+            <span class="status-clock" data-clock>10:37</span>
+            <div class="status-right">
+              <span class="signal-bars"><i></i><i></i><i></i><i></i></span>
+              <svg class="status-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wifi"></use></svg>
+              <span class="battery-icon"><i></i></span>
+            </div>
+          </div>
+          <span class="camera-hole" aria-hidden="true"></span>
+
+          <div class="app" id="app">
+            <header class="app-bar">
+              <a class="brand" href="#" id="brandHome" aria-label="回到课表">
+                <span class="brand-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M5.6 14.8c1.9-5.1 3.5-5.1 5.4 0s3.5 5.1 5.4 0" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"></path>
+                    <circle cx="17.7" cy="6.7" r="1.4" fill="currentColor"></circle>
+                  </svg>
+                </span>
+                <span class="brand-name">节律</span>
+              </a>
+              <div class="bar-actions">
+                <button class="icon-btn" type="button" data-watch-open aria-label="预览手表端">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-watch"></use></svg>
+                </button>
+                <button class="avatar-small" type="button" id="avatarJump" aria-label="打开个人设置">林</button>
+              </div>
+            </header>
+
+            <div class="pager" id="pager">
+              <section class="page page--today" id="page-today" aria-label="今日课表">
+                <div class="page-scroll">
+                  <header class="day-head">
+                    <div class="day-copy">
+                      <p class="eyebrow" id="dayEyebrow"></p>
+                      <h1 class="day-title">
+                        <span class="day-num num" id="dayNum"></span>
+                        <span class="day-week" id="dayWeek"></span>
+                      </h1>
+                      <p class="day-sub" id="daySub"></p>
+                    </div>
+                    <div class="day-side" id="clockSlot"></div>
+                  </header>
+
+                  <nav class="week-strip" id="weekStrip" aria-label="本周日期"></nav>
+                  <div id="heroSlot"></div>
+                  <div id="todayListSlot"></div>
+
+                  <p class="day-footnote">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lock"></use></svg>
+                    课程数据仅保存在本机
+                  </p>
+                </div>
+              </section>
+
+              <section class="page page--calendar" id="page-calendar" aria-label="日历">
+                <div class="page-scroll">
+                  <header class="page-head">
+                    <p class="eyebrow">全月视图</p>
+                    <h1>日历</h1>
+                    <p>把一整个学期，收进掌心。</p>
+                  </header>
+
+                  <section class="month-card" aria-label="月历">
+                    <div class="month-head">
+                      <h2 class="month-title" id="calMonthLabel"></h2>
+                      <div class="month-actions">
+                        <button class="text-btn text-btn--small" type="button" id="calTodayBtn">今天</button>
+                        <button class="icon-btn icon-btn--small" type="button" id="calPrev" aria-label="上个月">
+                          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
+                        </button>
+                        <button class="icon-btn icon-btn--small" type="button" id="calNext" aria-label="下个月">
+                          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="cal-weekdays" aria-hidden="true">
+                      <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                    </div>
+                    <div class="cal-grid" id="calGrid"></div>
+                    <div class="cal-foot">
+                      <span id="calStats"></span>
+                      <span class="cal-hint">点击日期查看</span>
+                    </div>
+                  </section>
+
+                  <div class="selected-head">
+                    <div class="selected-copy">
+                      <h3 id="selectedTitle"></h3>
+                      <p id="selectedMeta"></p>
+                    </div>
+                    <button class="text-btn" type="button" id="openDayBtn">
+                      打开课表
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                    </button>
+                  </div>
+                  <div id="agendaList"></div>
+                </div>
+              </section>
+
+              <section class="page page--settings" id="page-settings" aria-label="设置">
+                <div class="page-scroll">
+                  <header class="page-head">
+                    <p class="eyebrow">偏好与关于</p>
+                    <h1>设置</h1>
+                    <p>让节律更像你的节奏。</p>
+                  </header>
+
+                  <section class="profile-card" aria-label="个人资料">
+                    <span class="profile-avatar">林</span>
+                    <div class="profile-copy">
+                      <h2>林墨</h2>
+                      <p>2026 级 · 视觉传达</p>
+                    </div>
+                    <span class="week-chip" id="profileWeek">第 11 周</span>
+                  </section>
+
+                  <section class="settings-group" aria-labelledby="appearanceLabel">
+                    <h2 class="group-label" id="appearanceLabel">外观</h2>
+                    <div class="settings-card">
+                      <div class="setting-block">
+                        <div class="setting-main">
+                          <span class="icon-tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"></use></svg></span>
+                          <span class="setting-copy"><b>主题颜色</b><small id="paletteName">陶土 · Material You</small></span>
+                        </div>
+                        <div class="swatches" id="paletteSwatches" role="group" aria-label="主题颜色"></div>
+                      </div>
+                      <div class="setting-block">
+                        <div class="setting-main">
+                          <span class="icon-tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-moon"></use></svg></span>
+                          <span class="setting-copy"><b>深浅模式</b><small>跟随系统，或固定一种</small></span>
+                        </div>
+                        <div class="segmented" id="themeSegmented" role="group" aria-label="深浅模式">
+                          <button type="button" data-theme-mode="auto" aria-pressed="true">跟随系统</button>
+                          <button type="button" data-theme-mode="light" aria-pressed="false">浅色</button>
+                          <button type="button" data-theme-mode="dark" aria-pressed="false">深色</button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-group" aria-labelledby="timetableLabel">
+                    <h2 class="group-label" id="timetableLabel">我的课表</h2>
+                    <div class="settings-card">
+                      <button class="setting-row setting-row--action" type="button" data-manage-courses>
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-book"></use></svg></span>
+                        <span class="setting-copy"><b>课程管理</b><small id="courseCountLabel">17 门课程 · 10 节作息</small></span>
+                        <svg class="row-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                      </button>
+                      <button class="setting-row setting-row--action" type="button" data-edit-periods>
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"></use></svg></span>
+                        <span class="setting-copy"><b>作息时间</b><small id="periodSummary">10 节 · 08:00 开始</small></span>
+                        <svg class="row-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                      </button>
+                      <button class="setting-row setting-row--action" type="button" data-edit-term>
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-calendar"></use></svg></span>
+                        <span class="setting-copy"><b>学期设置</b><small id="termSummary">2026-08-31 · 18 周</small></span>
+                        <svg class="row-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                      </button>
+                      <button class="setting-row setting-row--action" type="button" data-data-tools>
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-download"></use></svg></span>
+                        <span class="setting-copy"><b>备份与恢复</b><small>导入 / 导出课表数据</small></span>
+                        <svg class="row-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                      </button>
+                    </div>
+                  </section>
+
+                  <section class="settings-group" aria-labelledby="courseLabel">
+                    <h2 class="group-label" id="courseLabel">课程与提醒</h2>
+                    <div class="settings-card">
+                      <div class="setting-row">
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"></use></svg></span>
+                        <span class="setting-copy"><b>课前提醒</b><small>提前 10 分钟</small></span>
+                        <button class="switch" type="button" role="switch" aria-checked="true" data-pref="classReminder" aria-label="课前提醒"></button>
+                      </div>
+                      <div class="setting-row">
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-volume-off"></use></svg></span>
+                        <span class="setting-copy"><b>上课自动静音</b><small>进入教学楼后静音</small></span>
+                        <button class="switch" type="button" role="switch" aria-checked="false" data-pref="silentCampus" aria-label="上课自动静音"></button>
+                      </div>
+                      <div class="setting-row">
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sun"></use></svg></span>
+                        <span class="setting-copy"><b>每日概览</b><small>每天 08:00 轻提醒</small></span>
+                        <button class="switch" type="button" role="switch" aria-checked="true" data-pref="dailyBrief" aria-label="每日概览"></button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-group" aria-labelledby="watchLabel">
+                    <h2 class="group-label" id="watchLabel">手表</h2>
+                    <div class="watch-feature">
+                      <div class="watch-feature-head">
+                        <span class="on-dark-kicker">WEAR OS</span>
+                        <span class="watch-connected"><i></i>已连接</span>
+                      </div>
+                      <div class="watch-feature-main">
+                        <div class="mini-watch" aria-hidden="true">
+                          <span class="mini-watch-ring" id="miniWatchRing"></span>
+                          <span class="mini-time num" data-clock>10:37</span>
+                          <span class="mini-label">现在</span>
+                        </div>
+                        <div class="watch-copy">
+                          <h3>节律 for Wear OS</h3>
+                          <p>Pixel Watch 3 · 82% 电量</p>
+                          <span class="watch-powertag">纯黑表盘 · 分钟级刷新</span>
+                        </div>
+                      </div>
+                      <div class="watch-feature-foot">
+                        <span class="watch-feature-note">没有常驻动画，抬手才看见。</span>
+                        <button class="btn-on-dark" type="button" data-watch-open>
+                          预览
+                          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="settings-card settings-card--under-watch">
+                      <div class="setting-row">
+                        <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-battery"></use></svg></span>
+                        <span class="setting-copy"><b>手腕省电</b><small>黑色像素不发光，无连续动画</small></span>
+                        <span class="locked-chip">始终开启</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-group" aria-labelledby="aboutLabel">
+                    <h2 class="group-label" id="aboutLabel">关于</h2>
+
+                    <div class="about-app">
+                      <span class="app-logo-lg" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M5.6 14.8c1.9-5.1 3.5-5.1 5.4 0s3.5 5.1 5.4 0" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"></path>
+                          <circle cx="17.7" cy="6.7" r="1.4" fill="currentColor"></circle>
+                        </svg>
+                      </span>
+                      <div class="about-app-copy">
+                        <div class="about-title-row"><h3>节律</h3><span class="version">1.2.0</span></div>
+                        <p>为小屏和手表而生的课程表。进入即课表，少一点翻找，多一点从容。</p>
+                      </div>
+                    </div>
+
+                    <div class="maker-card">
+                      <div class="maker-avatar" aria-hidden="true">
+                        <span>WB</span>
+                        <svg class="maker-spark" viewBox="0 0 24 24"><use href="#i-sparkles"></use></svg>
+                      </div>
+                      <div class="maker-copy">
+                        <p class="maker-kicker">设计与开发</p>
+                        <h3>WorkBuddy</h3>
+                        <p>一个喜欢 Material You 与可穿戴体验的 AI 设计搭档。相信好的工具不必喧哗：它应该在小屏上少占一点空间，在手腕上少耗一点电，在你需要时刚好出现。</p>
+                        <button class="maker-link" type="button" data-open-notes>
+                          读设计手记
+                          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="oss-card">
+                      <button class="oss-head" type="button" data-open-source>
+                        <span class="oss-mark" aria-hidden="true">
+                          <svg class="icon" viewBox="0 0 24 24"><use href="#i-github"></use></svg>
+                        </span>
+                        <span class="oss-copy">
+                          <b>开源在 GitHub</b>
+                          <small>shyoka/jielu · MIT License</small>
+                        </span>
+                        <span class="oss-go" aria-hidden="true">
+                          <svg class="icon" viewBox="0 0 24 24"><use href="#i-arrow-right"></use></svg>
+                        </span>
+                      </button>
+                      <div class="oss-foot">
+                        <span>MIT · 可自由修改与分发</span>
+                        <button class="oss-star" type="button" data-open-source>
+                          去仓库看看
+                          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="about-links">
+                      <button type="button" data-info="privacy"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shield"></use></svg>隐私说明</button>
+                      <button type="button" data-info="license"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-book"></use></svg>开源信息</button>
+                      <button type="button" data-info="feedback"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-heart"></use></svg>意见反馈</button>
+                    </div>
+                  </section>
+
+                  <p class="settings-footer">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lock"></use></svg>
+                    节律 1.2.0 · 数据仅存储在此设备
+                  </p>
+                </div>
+              </section>
+            </div>
+
+            <nav class="bottom-nav" id="bottomNav" aria-label="主要导航">
+              <button class="nav-item is-active" type="button" data-page-target="0" aria-current="page">
+                <span class="nav-indicator"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-calendar"></use></svg></span>
+                <span class="nav-label">课表</span>
+              </button>
+              <button class="nav-item" type="button" data-page-target="1">
+                <span class="nav-indicator"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-grid"></use></svg></span>
+                <span class="nav-label">日历</span>
+              </button>
+              <button class="nav-item" type="button" data-page-target="2">
+                <span class="nav-indicator"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sliders"></use></svg></span>
+                <span class="nav-label">设置</span>
+              </button>
+            </nav>
+
+            <div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
+            <div class="sheet-scrim" id="sheetScrim" aria-hidden="true"></div>
+            <section class="bottom-sheet" id="bottomSheet" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="sheetTitle">
+              <div class="sheet-grabber" aria-hidden="true"></div>
+              <div class="sheet-body" id="sheetBody"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="watch-aside" aria-label="手表端预览">
+      <div class="aside-label"><span class="aside-dot"></span>WEAR OS · 454 × 454</div>
+      <div class="watch-shell">
+        <iframe src="watch.html" title="节律手表端界面" loading="lazy"></iframe>
+      </div>
+      <div class="watch-aside-copy">
+        <strong>节律 · 手腕模式</strong>
+        <p>轻触表盘查看今日安排</p>
+      </div>
+      <div class="watch-tags">
+        <span>OLED 纯黑</span><span>分钟级刷新</span><span>无连续动画</span>
+      </div>
+    </aside>
+  </main>
+
+  <dialog class="watch-dialog" id="watchDialog" aria-labelledby="watchDialogTitle">
+    <div class="watch-dialog-panel">
+      <div class="watch-dialog-head">
+        <div>
+          <p class="eyebrow">Wear OS · 454 × 454</p>
+          <h2 id="watchDialogTitle">手腕上的节律</h2>
+        </div>
+        <button class="icon-btn" type="button" data-watch-close aria-label="关闭手表预览">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="watch-frame">
+        <iframe data-src="watch.html" title="节律手表端界面"></iframe>
+      </div>
+      <p class="watch-dialog-hint">轻触表盘，在「此刻」与「今日」之间切换。</p>
+      <div class="watch-dialog-actions">
+        <a class="btn-pill btn-pill--tonal" href="watch.html" target="_blank" rel="noopener">
+          单独打开
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-external"></use></svg>
+        </a>
+        <button class="btn-pill btn-pill--primary" type="button" data-watch-close>完成</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="assets/schedule.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
