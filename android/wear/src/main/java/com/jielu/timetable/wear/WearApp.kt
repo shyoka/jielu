@@ -2,7 +2,9 @@ package com.jielu.timetable.wear
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,10 +35,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,21 +49,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.ScalingLazyColumn
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.ToggleChip
+import androidx.wear.compose.material.ToggleChipDefaults
 import androidx.wear.compose.material.rememberScalingLazyListState
 import com.jielu.timetable.wear.data.Course
 import com.jielu.timetable.wear.data.CourseState
 import com.jielu.timetable.wear.data.ScheduleData
 import com.jielu.timetable.wear.data.ScheduleStore
+import com.jielu.timetable.wear.data.SettingsStore
+import com.jielu.timetable.wear.data.WearPalettes
 import com.jielu.timetable.wear.data.stateAt
 import com.jielu.timetable.wear.data.weekdayCN
 import com.jielu.timetable.wear.ui.JieluColors
-import kotlinx.coroutines.delay
+import com.jielu.timetable.wear.ui.JieluWearTheme
 import java.time.LocalDateTime
+import kotlinx.coroutines.delay
 
 private const val PAGE_COUNT = 3
 
@@ -65,38 +77,41 @@ private const val PAGE_COUNT = 3
 @Composable
 fun WearApp() {
     val data by ScheduleStore.data.collectAsState()
+    val settings by SettingsStore.settings.collectAsState()
     val now by rememberNow()
     val pagerState = rememberPagerState(initialPage = 0) { PAGE_COUNT }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        timeText = { TimeText() },
-        positionIndicator = {
-            if (pagerState.currentPage != 0 || pagerState.isScrollInProgress) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(PAGE_COUNT) { index ->
-                        Box(
-                            modifier = Modifier
-                                .size(if (index == pagerState.currentPage) 5.dp else 4.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (index == pagerState.currentPage) JieluColors.Accent
-                                    else JieluColors.SurfaceHigh
-                                )
-                        )
+    JieluWearTheme(settings.palette) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            timeText = { TimeText() },
+            positionIndicator = {
+                if (pagerState.currentPage != 0 || pagerState.isScrollInProgress) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(PAGE_COUNT) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .size(if (index == pagerState.currentPage) 5.dp else 4.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (index == pagerState.currentPage) MaterialTheme.colors.primary
+                                        else JieluColors.SurfaceHigh
+                                    )
+                            )
+                        }
                     }
                 }
             }
-        }
-    ) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            when (page) {
-                0 -> NowScreen(data, now)
-                1 -> AgendaScreen(data, now)
-                else -> DataScreen(data)
+        ) {
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                when (page) {
+                    0 -> NowScreen(data, now, settings.showRing)
+                    1 -> AgendaScreen(data, now, settings.hideFinished)
+                    else -> SettingsScreen(data)
+                }
             }
         }
     }
@@ -119,14 +134,14 @@ private fun rememberNow(): State<LocalDateTime> {
 /* ---------- 此刻 ---------- */
 
 @Composable
-private fun NowScreen(data: ScheduleData?, now: LocalDateTime) {
+private fun NowScreen(data: ScheduleData?, now: LocalDateTime, showRing: Boolean) {
     val date = now.toLocalDate()
     val minutes = now.hour * 60 + now.minute
     val state = data?.stateAt(date, minutes)
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (state) {
-            is CourseState.Active -> ActiveContent(state)
+            is CourseState.Active -> ActiveContent(state, showRing)
             is CourseState.Upcoming -> UpcomingContent(state)
             is CourseState.Done -> MessageContent(
                 title = "今天的课结束啦",
@@ -143,10 +158,10 @@ private fun NowScreen(data: ScheduleData?, now: LocalDateTime) {
 }
 
 @Composable
-private fun ActiveContent(state: CourseState.Active) {
+private fun ActiveContent(state: CourseState.Active, showRing: Boolean) {
     val color = JieluColors.course(state.course.tone)
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        if (showRing) Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = 6.dp.toPx()
             val inset = stroke / 2 + 3.dp.toPx()
             val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
@@ -259,7 +274,7 @@ private fun MessageContent(title: String, big: String, hint: String) {
 /* ---------- 今日 ---------- */
 
 @Composable
-private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime) {
+private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime, hideFinished: Boolean) {
     var selected by remember { mutableStateOf<Course?>(null) }
     val current = selected
 
@@ -269,8 +284,13 @@ private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime) {
     }
 
     val date = now.toLocalDate()
-    val courses = data?.coursesOn(date).orEmpty()
     val minutes = now.hour * 60 + now.minute
+    val today = data?.coursesOn(date).orEmpty()
+    val courses = if (hideFinished) {
+        today.filter { minutes < ScheduleData.minutesOf(it.end) }
+    } else {
+        today
+    }
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -305,7 +325,7 @@ private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime) {
         if (courses.isEmpty()) {
             item {
                 Text(
-                    text = "今天可以慢一点",
+                    text = if (today.isEmpty()) "今天可以慢一点" else "今天的课都上完了",
                     style = MaterialTheme.typography.caption2,
                     color = JieluColors.Muted,
                     modifier = Modifier.fillMaxWidth(),
@@ -433,13 +453,14 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
-/* ---------- 数据 ---------- */
+/* ---------- 设置 ---------- */
 
 @Composable
-private fun DataScreen(data: ScheduleData?) {
+private fun SettingsScreen(data: ScheduleData?) {
     val context = LocalContext.current
     val syncedAt by ScheduleStore.syncedAt.collectAsState()
     val source by ScheduleStore.source.collectAsState()
+    val settings by SettingsStore.settings.collectAsState()
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("") }
@@ -474,12 +495,12 @@ private fun DataScreen(data: ScheduleData?) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "课表数据", style = MaterialTheme.typography.title3)
+                Text(text = "设置", style = MaterialTheme.typography.title3)
                 Text(
-                    text = when {
+                    text = "${settings.palette.label} · " + when {
                         data == null -> "空"
-                        source == "phone" -> "来自手机 · ${formatTime(syncedAt)}"
-                        source == "text" -> "文本导入 · ${formatTime(syncedAt)}"
+                        source == "phone" -> "手机同步 ${formatTime(syncedAt)}"
+                        source == "text" -> "文本导入 ${formatTime(syncedAt)}"
                         else -> "示例数据"
                     },
                     style = MaterialTheme.typography.caption2,
@@ -487,20 +508,101 @@ private fun DataScreen(data: ScheduleData?) {
                 )
             }
         }
+
+        item { SectionLabel("配色") }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                WearPalettes.all.forEach { palette ->
+                    val selected = palette.key == settings.palette.key
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable { SettingsStore.setPalette(palette.key) }
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(if (selected) 30.dp else 24.dp)
+                                .clip(CircleShape)
+                                .background(Color(palette.accent))
+                        ) {
+                            if (selected) {
+                                Text(
+                                    text = "✓",
+                                    style = MaterialTheme.typography.caption2,
+                                    color = Color(palette.onAccent)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item { SectionLabel("显示") }
+
+        item {
+            ToggleChip(
+                modifier = Modifier.fillMaxWidth(),
+                checked = settings.hideFinished,
+                onCheckedChange = { SettingsStore.setHideFinished(it) },
+                label = { Text("折叠已结束") },
+                secondaryLabel = {
+                    Text(if (settings.hideFinished) "今日只看要上的课" else "今日显示全部课程")
+                },
+                toggleControl = {
+                    Icon(
+                        imageVector = ToggleChipDefaults.switchIcon(checked = settings.hideFinished),
+                        contentDescription = null
+                    )
+                },
+                colors = ToggleChipDefaults.toggleChipColors()
+            )
+        }
+
+        item {
+            ToggleChip(
+                modifier = Modifier.fillMaxWidth(),
+                checked = settings.showRing,
+                onCheckedChange = { SettingsStore.setShowRing(it) },
+                label = { Text("表盘进度环") },
+                secondaryLabel = {
+                    Text(if (settings.showRing) "沿表盘一圈显示进度" else "只留文字，更省电")
+                },
+                toggleControl = {
+                    Icon(
+                        imageVector = ToggleChipDefaults.switchIcon(checked = settings.showRing),
+                        contentDescription = null
+                    )
+                },
+                colors = ToggleChipDefaults.toggleChipColors()
+            )
+        }
+
+        item { SectionLabel("数据") }
+
         if (notice.isNotBlank()) {
             item {
                 Text(
                     text = notice,
                     style = MaterialTheme.typography.caption2,
-                    color = JieluColors.Accent,
+                    color = MaterialTheme.colors.primary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
+
         item {
             Text(
-                text = "在手机的「设置 → 手表」里点发送，课表会直接落到表盘上。",
+                text = "手机「设置 → 手表」里点发送，课表直接落到表盘上。",
                 style = MaterialTheme.typography.caption2,
                 color = JieluColors.Muted,
                 textAlign = TextAlign.Center,
@@ -527,15 +629,82 @@ private fun DataScreen(data: ScheduleData?) {
                 colors = ChipDefaults.secondaryChipColors()
             )
         }
+
+        item { SectionLabel("关于") }
+
         item {
-            Text(
-                text = "节律 ${BuildConfig.VERSION_NAME} · MIT",
-                style = MaterialTheme.typography.caption2,
-                color = JieluColors.Muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable { openProfile(context) }
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.avatar),
+                    contentDescription = "shyoka 的头像",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "shyoka",
+                        style = MaterialTheme.typography.title3,
+                        color = MaterialTheme.colors.primary
+                    )
+                    Text(
+                        text = "发起人 · 点开 GitHub",
+                        style = MaterialTheme.typography.caption2,
+                        color = JieluColors.Muted
+                    )
+                }
+            }
         }
+
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "由 WorkBuddy 设计与编码",
+                    style = MaterialTheme.typography.caption2,
+                    color = JieluColors.Muted
+                )
+                Text(
+                    text = "节律 ${BuildConfig.VERSION_NAME} · MIT",
+                    style = MaterialTheme.typography.caption2,
+                    color = JieluColors.Muted
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.caption2,
+        color = JieluColors.Muted,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, top = 8.dp)
+    )
+}
+
+private fun openProfile(context: android.content.Context) {
+    runCatching {
+        context.startActivity(
+            android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://github.com/shyoka")
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 
@@ -571,7 +740,7 @@ private fun ImportScreen(
                     .background(JieluColors.SurfaceHigh)
                     .padding(10.dp),
                 textStyle = TextStyle(color = JieluColors.OnSurface, fontSize = 11.sp),
-                cursorBrush = SolidColor(JieluColors.Accent),
+                cursorBrush = SolidColor(MaterialTheme.colors.primary),
                 decorationBox = { inner ->
                     if (draft.isBlank()) {
                         Text(

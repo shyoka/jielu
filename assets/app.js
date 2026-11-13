@@ -268,8 +268,9 @@
     name: "jielu",
     url: "https://github.com/shyoka/jielu",
     issues: "https://github.com/shyoka/jielu/issues",
+    profile: "https://github.com/shyoka",
     license: "MIT",
-    version: "1.3.0"
+    version: "1.4.0"
   };
 
   function openExternal(url) {
@@ -1539,7 +1540,7 @@
           <p>手表端以纯黑为主，让 OLED 像素真正熄灭；没有秒针、没有循环动画，只在分钟变化时醒来。手机端同样对齐到分钟更新，切到后台即暂停计时。省电不是隐藏功能，而是界面的一部分。</p>
         </div>
 
-        <div class="notes-sign"><span>设计与开发 · WorkBuddy</span><span>2026 · 秋</span></div>
+        <div class="notes-sign"><span>shyoka × WorkBuddy</span><span>2026 · 秋</span></div>
       </div>
     `);
   }
@@ -1752,6 +1753,13 @@
 
     $$("[data-open-source]").forEach((button) => {
       button.addEventListener("click", openSourceSheet);
+    });
+
+    $$("[data-open-profile]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        openExternal(REPO.profile);
+      });
     });
 
     $$("[data-send-watch]").forEach((button) => {

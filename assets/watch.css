@@ -447,3 +447,115 @@ body {
     scroll-behavior: auto;
   }
 }
+
+/* ---------- 设置（第三页） ---------- */
+
+.watch-settings {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.2cqw;
+  padding: 0 1.5cqw;
+  text-align: center;
+}
+
+.watch.is-settings .watch-now,
+.watch.is-settings .watch-bottom {
+  display: none;
+}
+
+.watch.is-settings .watch-settings {
+  display: flex;
+}
+
+.watch-settings-head {
+  display: flex;
+  align-items: baseline;
+  gap: 2.2cqw;
+  color: rgba(245, 238, 232, 0.88);
+  font-size: 4.4cqw;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.watch-palette-name {
+  color: var(--primary);
+  font-size: 3cqw;
+  font-weight: 600;
+}
+
+.watch-palettes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3.2cqw;
+  margin-top: 0.8cqw;
+}
+
+.watch-swatch {
+  width: 10.5cqw;
+  height: 10.5cqw;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+  transition: outline-color 0.2s ease-out;
+  outline: 0.9cqw solid transparent;
+  outline-offset: 1cqw;
+}
+
+.watch-swatch[data-palette-pick="clay"] { --swatch: #ffb4a4; }
+.watch-swatch[data-palette-pick="moss"] { --swatch: #a6d2b8; }
+.watch-swatch[data-palette-pick="iris"] { --swatch: #cfbef9; }
+.watch-swatch[data-palette-pick="tide"] { --swatch: #a1cee5; }
+
+.watch-swatch.is-active {
+  outline-color: color-mix(in oklab, var(--swatch) 78%, transparent);
+}
+
+.watch-about {
+  display: flex;
+  align-items: center;
+  gap: 2.6cqw;
+  margin-top: 2cqw;
+  padding: 1.8cqw 4.4cqw 1.8cqw 1.8cqw;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.watch-about img {
+  display: block;
+  width: 10cqw;
+  height: 10cqw;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.watch-about-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3cqw;
+  text-align: left;
+}
+
+.watch-about-copy b {
+  color: rgba(245, 238, 232, 0.92);
+  font-size: 3.5cqw;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.watch-about-copy span {
+  color: rgba(245, 238, 232, 0.4);
+  font-size: 2.4cqw;
+}
+
+.watch-settings-note {
+  color: rgba(245, 238, 232, 0.26);
+  font-size: 2.3cqw;
+  letter-spacing: 0.01em;
+}

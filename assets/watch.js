@@ -25,11 +25,17 @@
   const agendaFootCount = $("#agendaFootCount");
   const agendaView = $("#agendaView");
   const nowView = $("#nowView");
+  const settingsView = $("#settingsView");
+  const paletteLabel = $("#paletteLabel");
+  const swatches = Array.from(document.querySelectorAll("[data-palette-pick]"));
   const watchArc = $("#watchArc");
   const dots = Array.from(document.querySelectorAll(".watch-dots i"));
 
+  const PALETTE_NAMES = { clay: "陶土", moss: "苔绿", iris: "鸢尾", tide: "潮汐" };
+  const VIEW_LABELS = ["轻触查看今日安排", "轻触查看设置", "轻触返回此刻"];
+
   let minuteTimer = null;
-  let agendaOpen = false;
+  let viewIndex = 0;
 
   function escapeHTML(value) {
     return String(value)
@@ -197,15 +203,33 @@
     buildAgenda(courses, nowMinutes, true);
   }
 
-  function toggleAgenda() {
-    agendaOpen = !agendaOpen;
-    watchFace.classList.toggle("is-agenda", agendaOpen);
-    nowView.setAttribute("aria-hidden", String(agendaOpen));
-    agendaView.setAttribute("aria-hidden", String(!agendaOpen));
-    dots[0].classList.toggle("is-active", !agendaOpen);
-    dots[1].classList.toggle("is-active", agendaOpen);
-    watchFace.setAttribute("aria-label", agendaOpen ? "轻触返回此刻" : "轻触查看今日安排");
-    refresh();
+  function setView(next) {
+    viewIndex = (next + 3) % 3;
+    watchFace.classList.toggle("is-agenda", viewIndex === 1);
+    watchFace.classList.toggle("is-settings", viewIndex === 2);
+    [nowView, agendaView, settingsView].forEach((view, index) => {
+      view.setAttribute("aria-hidden", String(index !== viewIndex));
+    });
+    dots.forEach((dot, index) => dot.classList.toggle("is-active", index === viewIndex));
+    watchFace.setAttribute("aria-label", VIEW_LABELS[viewIndex]);
+    if (viewIndex === 2) {
+      setArc(0, false);
+    } else {
+      refresh();
+    }
+  }
+
+  function cycleView() {
+    setView(viewIndex + 1);
+  }
+
+  function syncSwatches(palette) {
+    swatches.forEach((swatch) => {
+      const active = swatch.dataset.palettePick === palette;
+      swatch.classList.toggle("is-active", active);
+      swatch.setAttribute("aria-checked", String(active));
+    });
+    if (paletteLabel) paletteLabel.textContent = PALETTE_NAMES[palette] || "陶土";
   }
 
   function scheduleMinuteTick() {
@@ -219,15 +243,26 @@
   }
 
   function init() {
-    applyPalette(readPalette());
+    const palette = readPalette();
+    applyPalette(palette);
+    syncSwatches(palette);
     refresh();
     scheduleMinuteTick();
 
-    watchFace.addEventListener("click", toggleAgenda);
+    swatches.forEach((swatch) => {
+      swatch.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const palette = swatch.dataset.palettePick;
+        applyPalette(palette);
+        syncSwatches(palette);
+      });
+    });
+
+    watchFace.addEventListener("click", cycleView);
     watchFace.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        toggleAgenda();
+        cycleView();
       }
     });
 
@@ -245,6 +280,7 @@
       if (!event.data) return;
       if (event.data.type === "jielu:appearance") {
         applyPalette(event.data.palette);
+        syncSwatches(event.data.palette);
         refresh();
       } else if (event.data.type === "jielu:data") {
         J.reloadData();

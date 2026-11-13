@@ -45,12 +45,14 @@
 
 - 仓库里的 `wear/` 是一个**独立的 Wear OS 应用**，Kotlin + Compose for Wear OS 写成，不是网页套壳。
 - 按 Wear OS 的方式组织界面：`TimeText` 顶部时间、`ScalingLazyColumn` 随表盘曲率缩放、`Chip` 作为列表项、左右滑动换页，**没有底部导航栏**，只在底部留三个小圆点指示位置。
-- 三页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**数据**（同步状态、粘贴课表文本、载入示例）。
+- 三页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**设置**（配色、显示选项、数据同步、关于）。
+- **手表上也能自定义**：四套配色（陶土 / 苔绿 / 鸢尾 / 潮汐）点一下就换，另外两个开关可以折叠已结束的课、关掉进度环只留文字。选择存进 `SharedPreferences`，重启仍在。
 - 纯黑背景，没有循环动画，时间与进度只在分钟变化时更新一次。
+- 设置页底部署名 **shyoka**（圆形头像，点击用系统浏览器打开 GitHub 主页）与 WorkBuddy。
 - 数据来源两条：
   - **手机直推**：在手机「设置 → 手表 → 发送课表到手表」里点一下，通过 Wearable Data Layer 把整份课表发到手表；手表端由 `WearableListenerService` 接收并落到本地。
   - **文本导入**：手表上可以直接粘贴手机导出的 JSON，解析失败不会覆盖旧数据。
-- 桌面浏览器右侧的手表预览仍是网页版 `watch.html`，用来看设计语言；真机上装的是原生应用。
+- 桌面浏览器右侧的手表预览是网页版 `watch.html`，同样改成三页并可以点配色（只影响预览，不写手机端偏好）；真机上装的是原生应用。
 
 ### 外观
 
@@ -136,7 +138,7 @@ keyPassword=******
 │   └── wear/                   # 手表：Kotlin + Compose for Wear OS
 │       ├── src/main/java/com/jielu/timetable/wear/
 │       │   ├── WearApp.kt      # 三页界面与圆环
-│       │   └── data/           # 课表模型、存储、Data Layer 接收
+│       │   └── data/           # 课表模型、设置存储、Data Layer 接收
 │       └── src/test/           # 数据层单元测试
 └── docs/screenshots/           # README 截图
 ```
@@ -203,6 +205,22 @@ if (course.parity === "even") return week % 2 === 0;
 - **手表同步依赖 Google Play 服务**：手机端用 Wearable Data Layer 推送，国产无 GMS 的手机会提示"缺少 Google Play 服务"；这种情况下请在手表端用"粘贴课表文本"导入。
 - 手表端是"只读"的：可以在手表上看课表、导入数据，但不能在表盘上编辑课程（圆形小屏不适合表单）。
 - 两个 APK 都还没有真机跑过（开发环境没有 Wear 设备），数据层有 9 个单元测试覆盖，UI 以编译通过与静态检查为准。
+
+## 关于作者
+
+<table>
+  <tr>
+    <td width="72"><img src="assets/avatar.jpg" width="60" alt="shyoka" style="border-radius:50%" /></td>
+    <td><b>shyoka</b> · <a href="https://github.com/shyoka">github.com/shyoka</a><br/>
+    提出这个项目要解决的问题：进入即课表、小屏省电、能在手腕上用。需求、取舍与验收都由他决定。</td>
+  </tr>
+  <tr>
+    <td align="center"><b>WB</b></td>
+    <td><b>WorkBuddy</b><br/>设计与编码：Material You 排版、Wear OS 原生端、Android 壳、数据层与测试。</td>
+  </tr>
+</table>
+
+应用内也有这两处：手机「设置 → 关于」的作者卡片，手表「设置 → 关于」。头像圆形裁切，点名字打开 GitHub 主页。
 
 ## 许可证
 

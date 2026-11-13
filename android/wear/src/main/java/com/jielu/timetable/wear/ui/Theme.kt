@@ -1,6 +1,7 @@
 package com.jielu.timetable.wear.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -8,16 +9,16 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Colors
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Typography
+import com.jielu.timetable.wear.data.WearPalette
+import com.jielu.timetable.wear.data.WearPalettes
 
-/** 与手机端深色色板同源，纯黑底让 OLED 像素真正熄灭。 */
+/** 纯黑底让 OLED 像素真正熄灭；强调色随用户在设置里选的配色变化。 */
 object JieluColors {
     val Background = Color(0xFF000000)
     val Surface = Color(0xFF16110F)
     val SurfaceHigh = Color(0xFF211A17)
     val OnSurface = Color(0xFFF4ECE7)
     val Muted = Color(0xFF9C8F88)
-    val Accent = Color(0xFFE8B4A0)
-    val AccentDeep = Color(0xFF8A4B3B)
 
     fun course(tone: String): Color = when (tone) {
         "sage" -> Color(0xFFA9D5B3)
@@ -29,15 +30,15 @@ object JieluColors {
     }
 }
 
-private val JieluColorsScheme = Colors(
-    primary = JieluColors.Accent,
-    primaryVariant = JieluColors.AccentDeep,
-    secondary = Color(0xFFC7B4AB),
+private fun jieluColors(palette: WearPalette) = Colors(
+    primary = Color(palette.accent),
+    primaryVariant = Color(palette.accentDeep),
+    secondary = Color(palette.secondary),
     surface = JieluColors.Surface,
     background = JieluColors.Background,
     error = Color(0xFFFFB4AB),
-    onPrimary = Color(0xFF2B1410),
-    onSecondary = Color(0xFF2B1410),
+    onPrimary = Color(palette.onAccent),
+    onSecondary = Color(palette.onAccent),
     onSurface = JieluColors.OnSurface,
     onBackground = JieluColors.OnSurface,
     onError = Color(0xFF690005)
@@ -57,9 +58,12 @@ private val JieluTypography = Typography(
 )
 
 @Composable
-fun JieluWearTheme(content: @Composable () -> Unit) {
+fun JieluWearTheme(
+    palette: WearPalette = WearPalettes.clay,
+    content: @Composable () -> Unit
+) {
     MaterialTheme(
-        colors = JieluColorsScheme,
+        colors = remember(palette) { jieluColors(palette) },
         typography = JieluTypography,
         content = content
     )

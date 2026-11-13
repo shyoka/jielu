@@ -57,6 +57,27 @@
           <div class="watch-agenda-rows" id="agendaRows"></div>
         </section>
 
+        <section class="watch-settings" id="settingsView" aria-hidden="true">
+          <div class="watch-settings-head">
+            <span>设置</span>
+            <span class="watch-palette-name" id="paletteLabel">陶土</span>
+          </div>
+          <div class="watch-palettes" role="radiogroup" aria-label="配色">
+            <button type="button" class="watch-swatch" data-palette-pick="clay" aria-label="陶土"></button>
+            <button type="button" class="watch-swatch" data-palette-pick="moss" aria-label="苔绿"></button>
+            <button type="button" class="watch-swatch" data-palette-pick="iris" aria-label="鸢尾"></button>
+            <button type="button" class="watch-swatch" data-palette-pick="tide" aria-label="潮汐"></button>
+          </div>
+          <div class="watch-about">
+            <img src="assets/avatar.jpg" alt="shyoka" width="38" height="38" />
+            <div class="watch-about-copy">
+              <b>shyoka</b>
+              <span>发起人 · github.com/shyoka</span>
+            </div>
+          </div>
+          <p class="watch-settings-note">配色可在真机保存 · 预览仅此一次</p>
+        </section>
+
         <footer class="watch-bottom">
           <div class="watch-next" id="nextBlock">
             <span id="nextLabel">下一节</span>
@@ -69,7 +90,7 @@
         </footer>
 
         <div class="watch-dots" aria-hidden="true">
-          <i class="is-active"></i><i></i>
+          <i class="is-active"></i><i></i><i></i>
         </div>
       </div>
     </main>

@@ -669,13 +669,23 @@ h4 {
   width: 35px;
   height: 35px;
   margin-left: 2px;
+  padding: 0;
   border-radius: 50%;
+  overflow: hidden;
   background: var(--secondary-container);
   color: var(--on-secondary-container);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--outline) 8%, transparent);
+}
+
+.avatar-small img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .pager {
@@ -2455,9 +2465,6 @@ h4 {
 }
 
 .maker-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
   margin-top: 7px;
   padding: 15px;
   border-radius: 25px;
@@ -2471,7 +2478,7 @@ h4 {
   place-items: center;
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: 50%;
   background: color-mix(in srgb, var(--primary) 13%, transparent);
   font-family: "Manrope", sans-serif;
   font-size: 11px;
@@ -4248,4 +4255,80 @@ html[data-native="1"] .page-scroll {
   width: 12px;
   height: 12px;
   opacity: 0.6;
+}
+
+/* 作者卡片（两个人） */
+
+.maker-person {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.maker-person {
+  border-radius: 16px;
+  transition: opacity 0.2s var(--ease-out);
+}
+
+a.maker-person:active {
+  opacity: 0.62;
+}
+
+a.maker-person:hover .maker-name {
+  color: var(--primary);
+}
+
+.maker-avatar--photo {
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--surface-container-high);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--on-surface) 12%, transparent);
+}
+
+.maker-avatar--photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.maker-person-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.maker-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  font-family: "Manrope", sans-serif;
+  font-size: 15px;
+  font-weight: 720;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  transition: color 0.2s var(--ease-out);
+}
+
+.maker-name .icon {
+  width: 11px;
+  height: 11px;
+  opacity: 0.4;
+}
+
+.maker-bio {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.72;
+  opacity: 0.78;
+}
+
+.maker-sep {
+  height: 1px;
+  margin: 11px 0;
+  background: color-mix(in oklab, currentColor 11%, transparent);
 }
