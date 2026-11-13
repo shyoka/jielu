@@ -94,7 +94,7 @@ cd android
 echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 
 ./gradlew assembleRelease
-# 产物：app/build/outputs/apk/release/app-release-unsigned.apk
+# 产物：app/build/outputs/apk/release/app-release.apk（无签名时为 app-release-unsigned.apk）
 ```
 
 **关于签名**：仓库里不包含签名密钥。要签出正式包，在 `android/` 下新建 `keystore.properties`：
