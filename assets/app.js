@@ -269,7 +269,7 @@
     url: "https://github.com/shyoka/jielu",
     issues: "https://github.com/shyoka/jielu/issues",
     license: "MIT",
-    version: "1.2.0"
+    version: "1.3.0"
   };
 
   function openExternal(url) {
@@ -1753,6 +1753,37 @@
     $$("[data-open-source]").forEach((button) => {
       button.addEventListener("click", openSourceSheet);
     });
+
+    $$("[data-send-watch]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const bridge = window.JieluNative;
+        if (!bridge || typeof bridge.sendToWatch !== "function") {
+          showSnackbar("网页版不能直连手表，请用安装版");
+          return;
+        }
+        try {
+          const payload = JSON.stringify({
+            term: J.getTerm(),
+            periods: J.getPeriods(),
+            courses: J.getAllCourses()
+          });
+          showSnackbar("正在发给手表…");
+          bridge.sendToWatch(payload);
+        } catch (error) {
+          showSnackbar("发送失败，请重试");
+        }
+      });
+    });
+
+    window.JieluWatchResult = (status) => {
+      const messages = {
+        ok: "课表已发送到手表",
+        "no-node": "没找到手表，先在表上打开节律",
+        "no-gms": "这台设备缺少 Google Play 服务",
+        fail: "发送失败，检查蓝牙后再试"
+      };
+      showSnackbar(messages[status] || "发送失败，请重试");
+    };
 
     $$("[data-info]").forEach((button) => {
       button.addEventListener("click", () => {

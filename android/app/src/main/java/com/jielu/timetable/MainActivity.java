@@ -17,6 +17,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -207,6 +210,45 @@ public class MainActivity extends Activity {
         public void openUrl(final String url) {
             openExternal(url);
         }
+
+        /** 把整份课表 JSON 通过 Data Layer 推送到手表。 */
+        @JavascriptInterface
+        public void sendToWatch(final String json) {
+            if (json == null || json.length() < 2) {
+                notifyWatchResult("fail");
+                return;
+            }
+            runOnUiThread(() -> {
+                try {
+                    Wearable.getNodeClient(MainActivity.this).getConnectedNodes()
+                            .addOnSuccessListener(nodes -> {
+                                if (nodes == null || nodes.isEmpty()) {
+                                    notifyWatchResult("no-node");
+                                    return;
+                                }
+                                PutDataMapRequest request = PutDataMapRequest.create("/jielu/data");
+                                request.getDataMap().putString("json", json);
+                                request.getDataMap().putLong("sentAt", System.currentTimeMillis());
+                                Wearable.getDataClient(MainActivity.this)
+                                        .putDataItem(request.asPutDataRequest().setUrgent())
+                                        .addOnCompleteListener(task ->
+                                                notifyWatchResult(task.isSuccessful() ? "ok" : "fail"));
+                            })
+                            .addOnFailureListener(error -> notifyWatchResult("no-gms"));
+                } catch (Throwable error) {
+                    notifyWatchResult("no-gms");
+                }
+            });
+        }
+    }
+
+    /** 把发送结果回传给网页，由页面弹 snackbar。 */
+    private void notifyWatchResult(String status) {
+        runOnUiThread(() -> {
+            if (webView == null) return;
+            webView.evaluateJavascript(
+                    "window.JieluWatchResult&&window.JieluWatchResult('" + status + "')", null);
+        });
     }
 
     private void applySystemBars(int color, boolean darkIcons) {

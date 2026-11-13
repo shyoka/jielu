@@ -20,8 +20,8 @@ android {
         applicationId "com.jielu.timetable"
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName "1.2.0"
+        versionCode 4
+        versionName "1.3.0"
         resConfigs "zh", "en"
     }
 
@@ -75,4 +75,9 @@ tasks.register("syncWebAssets", Sync) {
 
 tasks.named("preBuild").configure {
     dependsOn("syncWebAssets")
+}
+
+dependencies {
+    // 手机 → 手表的数据通道（Wearable Data Layer）
+    implementation "com.google.android.gms:play-services-wearable:18.1.0"
 }

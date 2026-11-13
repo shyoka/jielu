@@ -41,11 +41,16 @@
 - **冲突检测**：同一时段重复排课时提示，二次确认后才写入。
 - **备份与恢复**：整份数据导出为 JSON，也可以粘贴 JSON 导入；支持恢复示例数据。
 
-### 手表
+### 手表（独立 Wear OS 应用）
 
-- 454 × 454 圆形表盘，纯黑底（OLED 像素真正熄灭），只有一块分钟级刷新的进度环。
-- 两种视图：正在上课时显示课程名、地点、剩余分钟与进度环；课间显示下一节课与倒计时。
-- 手机端通过 `postMessage` 把手表界面同步到当前配色与当前数据，桌面版右侧可直接预览。
+- 仓库里的 `wear/` 是一个**独立的 Wear OS 应用**，Kotlin + Compose for Wear OS 写成，不是网页套壳。
+- 按 Wear OS 的方式组织界面：`TimeText` 顶部时间、`ScalingLazyColumn` 随表盘曲率缩放、`Chip` 作为列表项、左右滑动换页，**没有底部导航栏**，只在底部留三个小圆点指示位置。
+- 三页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**数据**（同步状态、粘贴课表文本、载入示例）。
+- 纯黑背景，没有循环动画，时间与进度只在分钟变化时更新一次。
+- 数据来源两条：
+  - **手机直推**：在手机「设置 → 手表 → 发送课表到手表」里点一下，通过 Wearable Data Layer 把整份课表发到手表；手表端由 `WearableListenerService` 接收并落到本地。
+  - **文本导入**：手表上可以直接粘贴手机导出的 JSON，解析失败不会覆盖旧数据。
+- 桌面浏览器右侧的手表预览仍是网页版 `watch.html`，用来看设计语言；真机上装的是原生应用。
 
 ### 外观
 
@@ -65,7 +70,7 @@
 
 <div align="center">
   <img src="docs/screenshots/watch.png" width="300" alt="手表界面" />
-  <p><sub>Wear OS 尺寸的手表界面 · 纯黑底 · 分钟级刷新</sub></p>
+  <p><sub>手表端的设计语言参考（网页预览版）· 纯黑底 · 分钟级刷新<br/>真机安装的是 <code>wear/</code> 里的原生 Compose 应用，版式一致但没有底部导航</sub></p>
 </div>
 
 ## 快速开始
@@ -93,9 +98,11 @@ python3 -m http.server 4173
 cd android
 echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 
-./gradlew assembleRelease
-# 产物：app/build/outputs/apk/release/app-release.apk（无签名时为 app-release-unsigned.apk）
+./gradlew :app:assembleRelease    # 手机：app/build/outputs/apk/release/app-release.apk
+./gradlew :wear:assembleRelease  # 手表：wear/build/outputs/apk/release/wear-release.apk
 ```
+
+两个包共用同一份签名配置，`applicationId` 分别是 `com.jielu.timetable` 与 `com.jielu.timetable.wear`，可以同时装在配对的手机和手表上。
 
 **关于签名**：仓库里不包含签名密钥。要签出正式包，在 `android/` 下新建 `keystore.properties`：
 
@@ -114,18 +121,24 @@ keyPassword=******
 
 ```
 .
-├── index.html              # 手机端 + 桌面舞台
-├── watch.html              # 手表端
+├── index.html                  # 手机端 + 桌面舞台
+├── watch.html                  # 手表端的网页预览（桌面右侧用）
 ├── assets/
-│   ├── tokens.css          # 四套配色与 MD3 token
-│   ├── app.css             # 手机端与舞台样式
-│   ├── watch.css           # 手表样式（cqw 单位适配圆屏）
-│   ├── schedule.js         # 数据层：存储、增删改、单双周、冲突
-│   ├── app.js              # 手机端交互
-│   └── watch.js            # 手表端渲染与消息同步
-├── android/                # 单 Activity WebView 壳
-│   └── app/src/main/java/com/jielu/timetable/MainActivity.java
-└── docs/screenshots/       # README 截图
+│   ├── tokens.css              # 四套配色与 MD3 token
+│   ├── app.css                 # 手机端与舞台样式
+│   ├── watch.css               # 网页预览用样式（cqw 单位适配圆屏）
+│   ├── schedule.js             # 数据层：存储、增删改、单双周、冲突
+│   ├── app.js                  # 手机端交互
+│   └── watch.js                # 网页预览的渲染与配色同步
+├── android/
+│   ├── app/                    # 手机：单 Activity + WebView
+│   │   └── src/main/java/com/jielu/timetable/MainActivity.java
+│   └── wear/                   # 手表：Kotlin + Compose for Wear OS
+│       ├── src/main/java/com/jielu/timetable/wear/
+│       │   ├── WearApp.kt      # 三页界面与圆环
+│       │   └── data/           # 课表模型、存储、Data Layer 接收
+│       └── src/test/           # 数据层单元测试
+└── docs/screenshots/           # README 截图
 ```
 
 ## 数据模型
@@ -172,8 +185,9 @@ if (course.parity === "even") return week % 2 === 0;
 
 - **三页横向 pager**：`scroll-snap-type: x mandatory` + `scrollend` 同步底部导航，导航点击时短暂锁定滚动事件，避免高亮回弹。
 - **分钟对齐刷新**：`delay = 60000 - s * 1000 - ms + 40`，每分钟只在整点后触发一次重绘；`visibilitychange` 时挂起定时器。
-- **手表功耗**：纯黑背景、无循环动画、无秒针，进度环用 SVG `stroke-dasharray` 在分钟变化时更新一次。
-- **圆屏适配**：手表页用 `container-type: size` + `cqw` 单位，454 或 396 直径都能等比排版。
+- **手表应用**：Kotlin + Compose for Wear OS（Material 2，稳定版），`ScalingLazyColumn` 负责曲率与缩放，`TimeText` 显示系统时间，页面用 Compose Foundation 的 `HorizontalPager` 左右切换，底部只有三个自绘圆点。
+- **手表功耗**：纯黑背景、无循环动画、无秒针；时间与进度由分钟对齐的协程驱动，只在整分钟后刷新一次。
+- **数据通道**：手机用 `Wearable.getDataClient().putDataItem()` 发 `/jielu/data`，手表由 `WearableListenerService` 接收；先查 `getConnectedNodes()`，没有配对节点就明确告诉用户，而不是假装发送成功。
 - **Android 壳**：`shouldInterceptRequest` 把 `https://appassets.androidplatform.net` 的请求映射到 `assets/www`，页面因此拥有安全上下文（`localStorage`、剪贴板 API 都可正常工作），同时完全离线。
 - **系统栏联动**：页面把当前 surface 颜色（`oklab` 会被 canvas 采样转成 hex）通过 `JieluNative.setSystemBars()` 传给原生，状态栏与导航栏跟随主题。
 - **开源入口**：设置页的"开源在 GitHub"卡片与"开源信息"弹层，点击后由 `JieluNative.openUrl()` 交给系统浏览器，Web 端则退化为 `window.open`。
@@ -186,7 +200,9 @@ if (course.parity === "even") return week % 2 === 0;
 
 - 没有课程提醒推送：设置里的"课前提醒"目前只是开关状态，尚未接入 `AlarmManager` 或通知渠道。
 - 没有云同步与多设备合并，换设备请用"备份与恢复"导出 JSON。
-- 手表端是同一套网页的响应式版本（`watch.html`），还没有打包成独立的 Wear OS 应用。
+- **手表同步依赖 Google Play 服务**：手机端用 Wearable Data Layer 推送，国产无 GMS 的手机会提示"缺少 Google Play 服务"；这种情况下请在手表端用"粘贴课表文本"导入。
+- 手表端是"只读"的：可以在手表上看课表、导入数据，但不能在表盘上编辑课程（圆形小屏不适合表单）。
+- 两个 APK 都还没有真机跑过（开发环境没有 Wear 设备），数据层有 9 个单元测试覆盖，UI 以编译通过与静态检查为准。
 
 ## 许可证
 

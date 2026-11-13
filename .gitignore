@@ -1,7 +1,7 @@
 # Android 构建产物
 android/.gradle/
 android/build/
-android/app/build/
+android/*/build/
 android/local.properties
 android/app/src/main/assets/www/
 
