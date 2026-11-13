@@ -71,8 +71,9 @@
 | <img src="docs/screenshots/today-dark.png" width="240" /> | <img src="docs/screenshots/settings.png" width="240" /> | <img src="docs/screenshots/open-source.png" width="240" /> |
 
 <div align="center">
-  <img src="docs/screenshots/watch.png" width="300" alt="手表界面" />
-  <p><sub>手表端的设计语言参考（网页预览版）· 纯黑底 · 分钟级刷新<br/>真机安装的是 <code>wear/</code> 里的原生 Compose 应用，版式一致但没有底部导航</sub></p>
+  <img src="docs/screenshots/watch.png" width="260" alt="手表界面" />
+  <img src="docs/screenshots/watch-settings.png" width="260" alt="手表设置与配色" />
+  <p><sub>手表端（网页预览版，与原生版同版式）· 纯黑底 · 分钟级刷新 · 四套配色<br/>真机安装的是 <code>wear/</code> 里的原生 Compose 应用</sub></p>
 </div>
 
 ## 快速开始
