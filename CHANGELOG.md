@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.1.1（手表）— 2026-11-14
+
+### 修复
+
+- **手表顶部一直显示应用名**：`Theme.JieluWear` 的父主题由 `Theme.DeviceDefault` 改为 `Theme.DeviceDefault.NoActionBar`，并在 `MainActivity` 里补了 `actionBar?.hide()` 兜底。Wear OS 真机上的 `DeviceDefault` 本来没有标题栏，但运行完整 Android 系统的手表会自带一条写着「节律」的 ActionBar，占住表盘顶部且无法划走。
+- 手表 1.1.1（versionCode 3）。
+
 ## 1.4.0 — 2026-11-13
 
 ### 新增

@@ -11,6 +11,9 @@ import com.jielu.timetable.wear.data.SettingsStore
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 兜底：部分完整 Android 手表 / 国产 ROM 会在主题之外再补一个标题栏，
+        // 这里主动隐藏，避免顶部一直挂着应用名。
+        actionBar?.hide()
         window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
         SettingsStore.init(this)
         ScheduleStore.ensureSample(this)
