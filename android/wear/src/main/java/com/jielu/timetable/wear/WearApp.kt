@@ -58,8 +58,10 @@ import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
 import androidx.wear.compose.material.ToggleChipDefaults
 import androidx.wear.compose.material.rememberScalingLazyListState
+import com.jielu.timetable.wear.data.Adjustment
 import com.jielu.timetable.wear.data.Course
 import com.jielu.timetable.wear.data.CourseState
+import com.jielu.timetable.wear.data.DayAdjustment
 import com.jielu.timetable.wear.data.ScheduleData
 import com.jielu.timetable.wear.data.ScheduleStore
 import com.jielu.timetable.wear.data.SettingsStore
@@ -68,10 +70,11 @@ import com.jielu.timetable.wear.data.stateAt
 import com.jielu.timetable.wear.data.weekdayCN
 import com.jielu.timetable.wear.ui.JieluColors
 import com.jielu.timetable.wear.ui.JieluWearTheme
+import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlinx.coroutines.delay
 
-private const val PAGE_COUNT = 3
+private const val PAGE_COUNT = 4
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -110,6 +113,7 @@ fun WearApp() {
                 when (page) {
                     0 -> NowScreen(data, now, settings.showRing)
                     1 -> AgendaScreen(data, now, settings.hideFinished)
+                    2 -> WeekScreen(data, now)
                     else -> SettingsScreen(data)
                 }
             }
@@ -286,6 +290,7 @@ private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime, hideFinished: 
     val date = now.toLocalDate()
     val minutes = now.hour * 60 + now.minute
     val today = data?.coursesOn(date).orEmpty()
+    val adjustment = data?.adjustmentOn(date)
     val courses = if (hideFinished) {
         today.filter { minutes < ScheduleData.minutesOf(it.end) }
     } else {
@@ -312,6 +317,15 @@ private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime, hideFinished: 
                     text = if (courses.isEmpty()) "没有课" else "${courses.size} 节课",
                     style = MaterialTheme.typography.title3
                 )
+                if (adjustment != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = adjustmentLabel(adjustment),
+                        style = MaterialTheme.typography.caption2,
+                        color = MaterialTheme.colors.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
         items(courses.size) { index ->
@@ -453,6 +467,134 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
+/* ---------- 本周 ---------- */
+
+@Composable
+private fun WeekScreen(data: ScheduleData?, now: LocalDateTime) {
+    val today = now.toLocalDate()
+    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val week = data?.weekOf(today) ?: 0
+    val parity = when {
+        week <= 0 -> ""
+        week % 2 == 1 -> "单周"
+        else -> "双周"
+    }
+
+    ScalingLazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = rememberScalingLazyListState(),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp)
+    ) {
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "本周", style = MaterialTheme.typography.title3)
+                Text(
+                    text = if (data == null) {
+                        "还没有课表"
+                    } else {
+                        "第 $week 周${if (parity.isNotEmpty()) " · $parity" else ""}"
+                    },
+                    style = MaterialTheme.typography.caption2,
+                    color = JieluColors.Muted
+                )
+            }
+        }
+        items(7) { index ->
+            val date = monday.plusDays(index.toLong())
+            DayBlock(
+                date = date,
+                courses = data?.coursesOn(date).orEmpty(),
+                adjustment = data?.adjustmentOn(date),
+                isToday = date == today
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayBlock(
+    date: LocalDate,
+    courses: List<Course>,
+    adjustment: DayAdjustment?,
+    isToday: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (isToday) MaterialTheme.colors.primary.copy(alpha = 0.16f)
+                else JieluColors.SurfaceHigh
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${weekdayCN(date)} · ${date.monthValue}/${date.dayOfMonth}",
+                style = MaterialTheme.typography.title3,
+                color = if (isToday) MaterialTheme.colors.primary else JieluColors.OnSurface
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = if (courses.isEmpty()) "无课" else "${courses.size} 节",
+                style = MaterialTheme.typography.caption2,
+                color = JieluColors.Muted
+            )
+        }
+        if (adjustment != null) {
+            Text(
+                text = adjustmentLabel(adjustment),
+                style = MaterialTheme.typography.caption2,
+                color = MaterialTheme.colors.primary
+            )
+        }
+        courses.forEach { course ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = course.start,
+                    style = MaterialTheme.typography.caption2,
+                    color = JieluColors.course(course.tone),
+                    modifier = Modifier.width(38.dp)
+                )
+                Text(
+                    text = course.name,
+                    style = MaterialTheme.typography.caption1,
+                    color = JieluColors.OnSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private fun adjustmentLabel(adjustment: DayAdjustment): String {
+    val adj = adjustment.adjustment
+    return when (adjustment.type) {
+        "swap-in" -> {
+            val source = adjustment.counterpart?.let { weekdayCN(it) } ?: "原来"
+            "调休 · 按${source}课表${if (adj.note.isNotBlank()) " · ${adj.note}" else ""}"
+        }
+        "swap-out" -> {
+            val target = adjustment.counterpart
+                ?.let { "${it.monthValue}/${it.dayOfMonth} ${weekdayCN(it)}" }
+                ?: ""
+            "停课 · 已调到 $target"
+        }
+        else -> "放假${if (adj.note.isNotBlank()) " · ${adj.note}" else ""}"
+    }
+}
+
 /* ---------- 设置 ---------- */
 
 @Composable
@@ -586,6 +728,38 @@ private fun SettingsScreen(data: ScheduleData?) {
             )
         }
 
+        item { SectionLabel("调休与调课") }
+
+        val adjustments = data?.adjustments.orEmpty()
+        if (adjustments.isEmpty()) {
+            item {
+                Text(
+                    text = "暂无临时调整。手机「设置 → 调休与调课」里可以新建调课或放假。",
+                    style = MaterialTheme.typography.caption2,
+                    color = JieluColors.Muted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+        } else {
+            items(adjustments.size) { index ->
+                val adj = adjustments[index]
+                Chip(
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(adjustmentSummary(adj)) },
+                    secondaryLabel = { Text("点按重置这条调整") },
+                    onClick = {
+                        notice = if (ScheduleStore.removeAdjustment(adj.id)) {
+                            "已恢复原课表"
+                        } else {
+                            "重置失败"
+                        }
+                    },
+                    colors = ChipDefaults.secondaryChipColors()
+                )
+            }
+        }
+
         item { SectionLabel("数据") }
 
         if (notice.isNotBlank()) {
@@ -682,6 +856,20 @@ private fun SettingsScreen(data: ScheduleData?) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun adjustmentSummary(adjustment: Adjustment): String {
+    val from = adjustment.fromDate
+    val to = adjustment.toDate
+    return when {
+        adjustment.kind == "off" && from != null ->
+            "${from.monthValue}/${from.dayOfMonth} ${weekdayCN(from)} · 放假"
+        from != null && to != null ->
+            "${from.monthValue}/${from.dayOfMonth} ${weekdayCN(from)} → " +
+                "${to.monthValue}/${to.dayOfMonth} ${weekdayCN(to)}"
+        else -> "临时调整"
     }
 }
 

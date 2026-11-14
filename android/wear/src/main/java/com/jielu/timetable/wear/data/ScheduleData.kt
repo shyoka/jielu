@@ -29,10 +29,30 @@ data class Period(val start: String, val end: String)
 
 data class Term(val start: String, val weeks: Int)
 
+/** 一条临时调整：把某天的课挪到另一天（swap），或让某天休息（off）。 */
+data class Adjustment(
+    val id: String,
+    val kind: String,      // swap | off
+    val from: String,      // yyyy-MM-dd
+    val to: String,
+    val note: String
+) {
+    val fromDate: LocalDate? get() = runCatching { LocalDate.parse(from) }.getOrNull()
+    val toDate: LocalDate? get() = runCatching { LocalDate.parse(to) }.getOrNull()
+}
+
+/** 某一天命中的调整。counterpart 是「另一端」的日期。 */
+data class DayAdjustment(
+    val type: String,      // swap-in | swap-out | off
+    val adjustment: Adjustment,
+    val counterpart: LocalDate?
+)
+
 data class ScheduleData(
     val term: Term,
     val periods: List<Period>,
-    val courses: List<Course>
+    val courses: List<Course>,
+    val adjustments: List<Adjustment> = emptyList()
 ) {
     val termStart: LocalDate
         get() = runCatching { LocalDate.parse(term.start) }.getOrDefault(LocalDate.now())
@@ -54,10 +74,28 @@ data class ScheduleData(
         }
     }
 
+    fun adjustmentOn(date: LocalDate): DayAdjustment? {
+        adjustments.firstOrNull { it.kind == "swap" && it.toDate == date }?.let { adjustment ->
+            val source = adjustment.fromDate ?: return null
+            return DayAdjustment("swap-in", adjustment, source)
+        }
+        adjustments.firstOrNull { it.fromDate == date }?.let { adjustment ->
+            return if (adjustment.kind == "off") {
+                DayAdjustment("off", adjustment, null)
+            } else {
+                DayAdjustment("swap-out", adjustment, adjustment.toDate)
+            }
+        }
+        return null
+    }
+
     fun coursesOn(date: LocalDate): List<Course> {
-        val dow = date.dayOfWeek.value % 7
+        val adjustment = adjustmentOn(date)
+        if (adjustment != null && adjustment.type != "swap-in") return emptyList()
+        val effective = adjustment?.counterpart ?: date
+        val dow = effective.dayOfWeek.value % 7
         return courses
-            .filter { it.day == dow && isActive(it, date) }
+            .filter { it.day == dow && isActive(it, effective) }
             .sortedBy { minutesOf(it.start) }
     }
 
@@ -125,7 +163,25 @@ data class ScheduleData(
                     )
                 }
 
-                if (courses.isEmpty()) null else ScheduleData(term, periods, courses)
+                val adjustments = mutableListOf<Adjustment>()
+                val adjustmentArray = root.optJSONArray("adjustments") ?: JSONArray()
+                for (i in 0 until adjustmentArray.length()) {
+                    val item = adjustmentArray.optJSONObject(i) ?: continue
+                    val kind = if (item.optString("kind") == "off") "off" else "swap"
+                    val fromDate = runCatching { LocalDate.parse(item.optString("from")) }.getOrNull()
+                        ?: continue
+                    val toDate = runCatching { LocalDate.parse(item.optString("to")) }.getOrNull()
+                    if (kind == "swap" && (toDate == null || toDate == fromDate)) continue
+                    adjustments += Adjustment(
+                        id = item.optString("id").ifEmpty { "adj$i" },
+                        kind = kind,
+                        from = fromDate.toString(),
+                        to = if (kind == "swap") toDate.toString() else "",
+                        note = item.optString("note")
+                    )
+                }
+
+                if (courses.isEmpty()) null else ScheduleData(term, periods, courses, adjustments)
             } catch (error: Exception) {
                 null
             }

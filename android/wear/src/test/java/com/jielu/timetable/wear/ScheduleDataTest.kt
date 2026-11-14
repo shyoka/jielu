@@ -116,4 +116,51 @@ class ScheduleDataTest {
         assertEquals(1, data.coursesOn(LocalDate.parse("2026-03-18")).size)
         assertEquals(0, data.coursesOn(LocalDate.parse("2026-03-11")).size)
     }
+
+    @Test
+    fun `swap adjustment moves monday courses to saturday`() {
+        val raw = """
+            {"term":{"start":"2026-08-31","weeks":18},
+             "courses":[{"id":"a","name":"周一课","day":1,"start":"08:00","end":"08:45",
+                         "weekStart":1,"weekEnd":18,"parity":"all"}],
+             "adjustments":[{"id":"adj1","kind":"swap","from":"2026-09-07",
+                             "to":"2026-09-12","note":"调到周六"}]}
+        """.trimIndent()
+        val data = ScheduleData.parse(raw)!!
+        assertEquals(1, data.adjustments.size)
+        assertEquals(0, data.coursesOn(LocalDate.parse("2026-09-07")).size)
+        val saturday = data.coursesOn(LocalDate.parse("2026-09-12"))
+        assertEquals(1, saturday.size)
+        assertEquals("周一课", saturday.single().name)
+        assertEquals("swap-in", data.adjustmentOn(LocalDate.parse("2026-09-12"))?.type)
+        assertEquals("swap-out", data.adjustmentOn(LocalDate.parse("2026-09-07"))?.type)
+        // 下一周恢复正常
+        assertEquals(1, data.coursesOn(LocalDate.parse("2026-09-14")).size)
+    }
+
+    @Test
+    fun `off adjustment clears the day`() {
+        val raw = """
+            {"term":{"start":"2026-08-31","weeks":18},
+             "courses":[{"id":"a","name":"周四课","day":4,"start":"08:00","end":"08:45",
+                         "weekStart":1,"weekEnd":18,"parity":"all"}],
+             "adjustments":[{"id":"adj2","kind":"off","from":"2026-10-01","note":"国庆"}]}
+        """.trimIndent()
+        val data = ScheduleData.parse(raw)!!
+        assertEquals(0, data.coursesOn(LocalDate.parse("2026-10-01")).size)
+        assertEquals("off", data.adjustmentOn(LocalDate.parse("2026-10-01"))?.type)
+        assertEquals(1, data.coursesOn(LocalDate.parse("2026-09-24")).size)
+    }
+
+    @Test
+    fun `broken adjustments are ignored`() {
+        val raw = """
+            {"term":{"start":"2026-08-31","weeks":18},
+             "courses":[{"id":"a","name":"课","day":1,"start":"08:00","end":"08:45"}],
+             "adjustments":[{"id":"bad","kind":"swap","from":"x","to":"y"},
+                            {"id":"bad2","kind":"swap","from":"2026-09-07","to":"2026-09-07"}]}
+        """.trimIndent()
+        val data = ScheduleData.parse(raw)!!
+        assertEquals(0, data.adjustments.size)
+    }
 }

@@ -2,6 +2,7 @@ package com.jielu.timetable;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -11,6 +12,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsetsController;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsResult;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -106,6 +109,31 @@ public class MainActivity extends Activity {
                 }
                 // 页面本身完全离线，只有开源信息里的外链会走到这里，交给系统浏览器
                 openExternal(url.toString());
+                return true;
+            }
+        });
+
+        // WebView 默认不弹 JS 对话框，confirm() 会直接返回 false，
+        // 导致「删除课程 / 清空课表 / 恢复示例」看起来完全没反应。
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> result.confirm())
+                        .setOnCancelListener(dialog -> result.confirm())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> result.confirm())
+                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> result.cancel())
+                        .setOnCancelListener(dialog -> result.cancel())
+                        .show();
                 return true;
             }
         });

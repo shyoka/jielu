@@ -270,7 +270,7 @@
     issues: "https://github.com/shyoka/jielu/issues",
     profile: "https://github.com/shyoka",
     license: "MIT",
-    version: "1.4.0"
+    version: "1.5.0"
   };
 
   function openExternal(url) {
@@ -429,7 +429,9 @@
       })
       .join("");
 
-    heroSlot.innerHTML = buildHero(courses, date, isToday, now);
+    heroSlot.innerHTML =
+      buildAdjustBanner(J.getAdjustmentForDate(date)) +
+      buildHero(courses, date, isToday, now);
 
     if (courses.length) {
       todayListSlot.innerHTML = `
@@ -448,6 +450,36 @@
     }
 
     pageToday.scrollTop = pageScrollTop;
+  }
+
+  function buildAdjustBanner(adjustment) {
+    if (!adjustment) return "";
+    const adj = adjustment.adjustment;
+    let title = "";
+    let detail = "";
+    let tone = "in";
+    if (adjustment.type === "swap-in") {
+      const source = J.parseDateKey(adj.from);
+      title = "调休上课";
+      detail = `按${J.weekdayCN(source)}的课表${adj.note ? ` · ${adj.note}` : ""}`;
+      tone = "in";
+    } else if (adjustment.type === "swap-out") {
+      const target = J.parseDateKey(adj.to);
+      title = "今天停课";
+      detail = `已调到 ${J.formatDate(target)} 周${J.weekdayCN(target, true)}${
+        adj.note ? ` · ${adj.note}` : ""
+      }`;
+      tone = "out";
+    } else {
+      title = "今天放假";
+      detail = adj.note || "今天没有课程";
+      tone = "off";
+    }
+    return `
+      <div class="adjust-banner adjust-banner--${tone}">
+        <span class="adjust-mark">${icon("calendar")}</span>
+        <span class="adjust-copy"><b>${title}</b><small>${escapeHTML(detail)}</small></span>
+      </div>`;
   }
 
   function buildRing(progress, value, label, muted) {
@@ -816,6 +848,14 @@
       termSummary.textContent = `${start.getFullYear()} 年 ${start.getMonth() + 1} 月 ${start.getDate()} 日 · ${term.weeks} 周`;
     }
 
+    const adjustSummary = $("#adjustSummary");
+    if (adjustSummary) {
+      const adjustments = J.getAdjustments();
+      adjustSummary.textContent = adjustments.length
+        ? `${adjustments.length} 条临时调整 · 可重置`
+        : "临时调课、放假与补课";
+    }
+
     paletteName.textContent = `${PALETTES[state.palette]} · Material You`;
     updateMiniWatch();
     $$("[data-theme-mode]", themeSegmented).forEach((button) => {
@@ -893,6 +933,8 @@
       lastFocusedElement.focus({ preventScroll: true });
     }
     lastFocusedElement = null;
+    manageSelect = false;
+    manageSelected.clear();
   }
 
   function openCourseSheet(course, date) {
@@ -1235,9 +1277,37 @@
 
   /* ---------- 课程管理 ---------- */
 
+  let manageSelect = false;
+  const manageSelected = new Set();
+
+  function manageItemHTML(course, selectMode, picked) {
+    const meta = `${escapeHTML(J.formatWeeks(course))}${
+      course.room ? ` · ${escapeHTML(course.room)}` : ""
+    }`;
+    const body = `
+      <span class="manage-time"><b>${course.start}</b><span>${course.end}</span></span>
+      <span class="manage-copy">
+        <b>${escapeHTML(course.name)}</b>
+        <small>${meta}</small>
+      </span>`;
+    if (selectMode) {
+      return `
+        <button class="manage-item c-${course.tone}${picked ? " is-picked" : ""}" type="button" data-manage-check="${course.id}" aria-pressed="${picked}">
+          <span class="pick-box" aria-hidden="true">${picked ? icon("check") : ""}</span>
+          ${body}
+        </button>`;
+    }
+    return `
+      <button class="manage-item c-${course.tone}" type="button" data-edit-course="${course.id}" aria-label="编辑${escapeHTML(course.name)}">
+        ${body}
+        ${icon("edit", "manage-icon")}
+      </button>`;
+  }
+
   function openCourseManager() {
     const courses = J.getAllCourses();
     const term = J.getTerm();
+    if (!manageSelect) manageSelected.clear();
     const groups = [1, 2, 3, 4, 5, 6, 0]
       .map((day) => {
         const list = courses.filter((course) => course.day === day);
@@ -1246,38 +1316,201 @@
           <div class="manage-day">
             <h3>${dayName(day)}<span>${list.length} 门</span></h3>
             ${list
-              .map(
-                (course) => `
-                <button class="manage-item c-${course.tone}" type="button" data-edit-course="${course.id}" aria-label="编辑${escapeHTML(course.name)}">
-                  <span class="manage-time"><b>${course.start}</b><span>${course.end}</span></span>
-                  <span class="manage-copy">
-                    <b>${escapeHTML(course.name)}</b>
-                    <small>${escapeHTML(J.formatWeeks(course))}${course.room ? ` · ${escapeHTML(course.room)}` : ""}</small>
-                  </span>
-                  ${icon("edit", "manage-icon")}
-                </button>`
+              .map((course) =>
+                manageItemHTML(course, manageSelect, manageSelected.has(course.id))
               )
               .join("")}
           </div>`;
       })
       .join("");
 
+    const footer = manageSelect
+      ? `<div class="form-actions form-actions--sticky">
+          <button class="text-btn" type="button" data-manage-cancel>退出</button>
+          <button class="btn btn-tonal" type="button" data-manage-all>${
+            courses.length && manageSelected.size === courses.length
+              ? "取消全选"
+              : "全选"
+          }</button>
+          <button class="btn btn-tonal manage-delete" type="button" data-manage-delete ${
+            manageSelected.size ? "" : "disabled"
+          }>${manageSelected.size ? `删除 (${manageSelected.size})` : "删除"}</button>
+        </div>`
+      : `<div class="form-actions form-actions--sticky">
+          <button class="btn btn-tonal" type="button" data-manage-select>${icon(
+            "check"
+          )}批量管理</button>
+          <button class="btn btn-primary" type="button" data-add-course>${icon(
+            "plus"
+          )}添加课程</button>
+        </div>`;
+
     openSheet(`
       <div class="sheet-kicker-row">
         <span class="sheet-kicker">我的课表</span>
         <button class="sheet-close" type="button" data-close-sheet aria-label="关闭">${icon("x")}</button>
       </div>
-      <h2 class="sheet-title" id="sheetTitle">课程管理</h2>
-      <p class="sheet-subline">${courses.length} 门课程 · ${courses.reduce((sum, course) => sum + (Number(course.credits) || 0), 0)} 学分 · ${term.weeks} 周学期</p>
+      <h2 class="sheet-title" id="sheetTitle">${
+        manageSelect ? "选择要删除的课程" : "课程管理"
+      }</h2>
+      <p class="sheet-subline">${
+        manageSelect
+          ? `已选 ${manageSelected.size} 门 · 点按切换`
+          : `${courses.length} 门课程 · ${courses.reduce(
+              (sum, course) => sum + (Number(course.credits) || 0),
+              0
+            )} 学分 · ${term.weeks} 周学期`
+      }</p>
       ${
         groups
           ? `<div class="manage-list">${groups}</div>`
           : `<div class="agenda-empty"><span class="empty-orb">${icon("book")}</span><h4>课表还是空的</h4><p>添加第一门课程，节律就开始运转了。</p></div>`
       }
-      <div class="form-actions form-actions--sticky">
-        <button class="btn btn-primary" type="button" data-add-course>${icon("plus")}添加课程</button>
+      ${footer}
+    `);
+  }
+
+  function syncManageSelection() {
+    const total = J.getAllCourses().length;
+    $$("[data-manage-check]", sheetBody).forEach((button) => {
+      const on = manageSelected.has(button.dataset.manageCheck);
+      button.classList.toggle("is-picked", on);
+      button.setAttribute("aria-pressed", String(on));
+      const box = $(".pick-box", button);
+      if (box) box.innerHTML = on ? icon("check") : "";
+    });
+    const del = $("[data-manage-delete]", sheetBody);
+    if (del) {
+      del.disabled = manageSelected.size === 0;
+      del.textContent = manageSelected.size ? `删除 (${manageSelected.size})` : "删除";
+    }
+    const all = $("[data-manage-all]", sheetBody);
+    if (all) {
+      all.textContent =
+        total && manageSelected.size === total ? "取消全选" : "全选";
+    }
+    const subtitle = $(".sheet-subline", sheetBody);
+    if (subtitle) subtitle.textContent = `已选 ${manageSelected.size} 门 · 点按切换`;
+  }
+
+  /* ---------- 调休与调课 ---------- */
+
+  function openAdjustManager() {
+    const rows = J.getAdjustments()
+      .map((adj) => {
+        const from = J.parseDateKey(adj.from);
+        const to = adj.to ? J.parseDateKey(adj.to) : null;
+        const title =
+          adj.kind === "off"
+            ? `${J.formatDate(from)} 周${J.weekdayCN(from, true)} · 放假`
+            : `${J.formatDate(from)} 周${J.weekdayCN(from, true)} → ${J.formatDate(
+                to
+              )} 周${J.weekdayCN(to, true)}`;
+        const sub =
+          adj.note ||
+          (adj.kind === "off" ? "当天没有课程" : "当天按源日期的课表上课");
+        return `
+          <div class="adjust-item">
+            <span class="adjust-item-copy"><b>${title}</b><small>${escapeHTML(
+          sub
+        )}</small></span>
+            <button class="icon-btn icon-btn--danger" type="button" data-adjust-delete="${
+              adj.id
+            }" aria-label="删除这条调整">${icon("trash")}</button>
+          </div>`;
+      })
+      .join("");
+
+    openSheet(`
+      <div class="sheet-kicker-row">
+        <span class="sheet-kicker">临时安排</span>
+        <button class="sheet-close" type="button" data-close-sheet aria-label="关闭">${icon("x")}</button>
+      </div>
+      <h2 class="sheet-title" id="sheetTitle">调休与调课</h2>
+      <p class="sheet-subline">只影响选中的日期 · 随时可以重置</p>
+      ${
+        rows
+          ? `<div class="adjust-list">${rows}</div>`
+          : `<div class="agenda-empty"><span class="empty-orb">${icon(
+              "calendar"
+            )}</span><h4>还没有临时调整</h4><p>把某天的课挪到另一天，或标记一天放假。</p></div>`
+      }
+      <div class="data-actions">
+        <button class="btn btn-tonal" type="button" data-adjust-new="swap">${icon(
+          "calendar"
+        )}新建调课</button>
+        <button class="btn btn-tonal" type="button" data-adjust-new="off">${icon(
+          "moon"
+        )}标记放假</button>
       </div>
     `);
+  }
+
+  function openAdjustEditor(kind) {
+    const isSwap = kind !== "off";
+    const today = J.atMidnight(new Date());
+    const fromKey = J.dateKey(today);
+    let toKey = J.dateKey(J.addDays(J.startOfWeek(today), 5));
+    if (toKey === fromKey) toKey = J.dateKey(J.addDays(today, 7));
+    openSheet(`
+      <div class="sheet-kicker-row">
+        <span class="sheet-kicker">${isSwap ? "临时调课" : "标记放假"}</span>
+        <button class="sheet-close" type="button" data-close-sheet aria-label="关闭">${icon("x")}</button>
+      </div>
+      <h2 class="sheet-title" id="sheetTitle">${
+        isSwap ? "把课挪到另一天" : "让这一天休息"
+      }</h2>
+      <p class="sheet-subline">${
+        isSwap ? "只对这两个日期生效，下周恢复原样" : "只影响选中的这一天"
+      }</p>
+      <form id="adjustForm" data-kind="${isSwap ? "swap" : "off"}">
+        <label class="field">
+          <span class="field-label">${isSwap ? "原来的上课日" : "放假日"}</span>
+          <input class="text-input" type="date" name="from" value="${fromKey}" required />
+        </label>
+        ${
+          isSwap
+            ? `<label class="field">
+                <span class="field-label">调到哪天</span>
+                <input class="text-input" type="date" name="to" value="${toKey}" required />
+              </label>`
+            : ""
+        }
+        <label class="field">
+          <span class="field-label">备注（可选）</span>
+          <input class="text-input" type="text" name="note" maxlength="60" placeholder="${
+            isSwap ? "例如：周一课调到周六" : "例如：国庆放假"
+          }" />
+        </label>
+        <p class="form-hint">${
+          isSwap
+            ? "目标日期原有的课程会被临时替换。"
+            : "这一天的课程会暂时隐藏，删除这条记录即可恢复。"
+        }</p>
+        <p class="form-error" id="adjustError" hidden></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+      </form>
+    `);
+  }
+
+  function handleAdjustSubmit(form) {
+    const kind = form.dataset.kind === "off" ? "off" : "swap";
+    const from = form.querySelector('input[name="from"]').value;
+    const toInput = form.querySelector('input[name="to"]');
+    const note = form.querySelector('input[name="note"]').value.trim();
+    const errorEl = $("#adjustError");
+    try {
+      J.addAdjustment({ kind, from, to: toInput ? toInput.value : "", note });
+      openAdjustManager();
+      showSnackbar(kind === "swap" ? "调课已生效" : "已标记放假");
+    } catch (error) {
+      if (errorEl) {
+        errorEl.textContent = error.message || "保存失败";
+        errorEl.hidden = false;
+      }
+    }
   }
 
   /* ---------- 作息时间 ---------- */
@@ -1486,7 +1719,9 @@
       showSnackbar(`已导入 ${result.courses} 门课程`);
     } catch (error) {
       if (errorEl) {
-        errorEl.textContent = "导入失败：请确认粘贴的是完整的课表 JSON。";
+        errorEl.textContent = `导入失败：${
+          error.message || "请确认粘贴的是完整的课表 JSON。"
+        }`;
         errorEl.hidden = false;
       }
     }
@@ -1710,6 +1945,10 @@
         openTermEditor();
         return;
       }
+      if (event.target.closest("[data-adjust-tools]")) {
+        openAdjustManager();
+        return;
+      }
       if (event.target.closest("[data-data-tools]")) {
         openDataTools();
       }
@@ -1859,6 +2098,67 @@
         return;
       }
 
+      if (event.target.closest("[data-manage-select]")) {
+        manageSelect = true;
+        manageSelected.clear();
+        openCourseManager();
+        return;
+      }
+
+      if (event.target.closest("[data-manage-cancel]")) {
+        manageSelect = false;
+        manageSelected.clear();
+        openCourseManager();
+        return;
+      }
+
+      const manageCheck = event.target.closest("[data-manage-check]");
+      if (manageCheck) {
+        const id = manageCheck.dataset.manageCheck;
+        if (manageSelected.has(id)) manageSelected.delete(id);
+        else manageSelected.add(id);
+        syncManageSelection();
+        return;
+      }
+
+      if (event.target.closest("[data-manage-all]")) {
+        const all = J.getAllCourses();
+        if (manageSelected.size === all.length) manageSelected.clear();
+        else all.forEach((course) => manageSelected.add(course.id));
+        syncManageSelection();
+        return;
+      }
+
+      if (event.target.closest("[data-manage-delete]")) {
+        const ids = Array.from(manageSelected);
+        if (!ids.length) return;
+        if (window.confirm(`确定删除选中的 ${ids.length} 门课程吗？`)) {
+          const removed = J.deleteCourses(ids);
+          manageSelected.clear();
+          manageSelect = false;
+          openCourseManager();
+          showSnackbar(`已删除 ${removed} 门课程`);
+        }
+        return;
+      }
+
+      if (event.target.closest("[data-adjust-new]")) {
+        openAdjustEditor(
+          event.target.closest("[data-adjust-new]").dataset.adjustNew
+        );
+        return;
+      }
+
+      const adjustDelete = event.target.closest("[data-adjust-delete]");
+      if (adjustDelete) {
+        if (window.confirm("删除这条临时调整吗？")) {
+          J.removeAdjustment(adjustDelete.dataset.adjustDelete);
+          openAdjustManager();
+          showSnackbar("已恢复原课表");
+        }
+        return;
+      }
+
       const dayButton = event.target.closest("[data-day]");
       if (dayButton) {
         const group = dayButton.closest("[data-chip-group]");
@@ -1983,6 +2283,9 @@
       } else if (event.target.id === "termForm") {
         event.preventDefault();
         handleTermSubmit(event.target);
+      } else if (event.target.id === "adjustForm") {
+        event.preventDefault();
+        handleAdjustSubmit(event.target);
       }
     });
 

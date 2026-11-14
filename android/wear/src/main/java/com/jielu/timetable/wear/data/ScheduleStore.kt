@@ -3,6 +3,8 @@ package com.jielu.timetable.wear.data
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.BufferedReader
 
 /**
@@ -64,6 +66,34 @@ object ScheduleStore {
         _data.value = null
         _syncedAt.value = 0L
         _source.value = ""
+    }
+
+    /**
+     * 手表端重置一条临时调整。只改本机缓存，下次手机推送会以手机为准，
+     * 这样「手表上临时取消」不会悄悄改掉手机里的完整数据。
+     */
+    fun removeAdjustment(id: String): Boolean {
+        val ctx = appContext ?: return false
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_JSON, null) ?: return false
+        val root = runCatching { JSONObject(raw) }.getOrNull() ?: return false
+        val array = root.optJSONArray("adjustments") ?: return false
+        val next = JSONArray()
+        var removed = false
+        for (i in 0 until array.length()) {
+            val item = array.optJSONObject(i) ?: continue
+            if (item.optString("id") == id) {
+                removed = true
+            } else {
+                next.put(item)
+            }
+        }
+        if (!removed) return false
+        root.put("adjustments", next)
+        val updated = root.toString()
+        prefs.edit().putString(KEY_JSON, updated).apply()
+        _data.value = ScheduleData.parse(updated)
+        return _data.value != null
     }
 
     /** 首次打开时给一份示例，避免对着空白表盘。 */

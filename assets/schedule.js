@@ -298,6 +298,32 @@
       .slice(0, 20);
   }
 
+  function normalizeAdjustment(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+    const from = isDate(raw.from) ? String(raw.from) : "";
+    const to = isDate(raw.to) ? String(raw.to) : "";
+    const kind = raw.kind === "off" ? "off" : "swap";
+    if (kind === "swap") {
+      if (!from || !to || from === to) return null;
+      return {
+        id: String(raw.id || uid("adj")).slice(0, 40),
+        kind: "swap",
+        from,
+        to,
+        note: String(raw.note || "").trim().slice(0, 60)
+      };
+    }
+    if (!from) return null;
+    return {
+      id: String(raw.id || uid("adj")).slice(0, 40),
+      kind: "off",
+      from,
+      to: "",
+      note: String(raw.note || "").trim().slice(0, 60)
+    };
+  }
+
   function normalizeData(raw) {
     const term = {
       start:
@@ -314,7 +340,11 @@
     const courses = (raw && Array.isArray(raw.courses) ? raw.courses : []).map(
       (course) => normalizeCourse(course, term.weeks)
     );
-    return { version: 2, term, periods, courses };
+    const adjustments = (raw && Array.isArray(raw.adjustments) ? raw.adjustments : [])
+      .map(normalizeAdjustment)
+      .filter(Boolean)
+      .slice(0, 120);
+    return { version: 2, term, periods, courses, adjustments };
   }
 
   function defaultData() {
@@ -447,12 +477,42 @@
     return true;
   }
 
+  function getAdjustmentForDate(date) {
+    const key = dateKey(date);
+    const swapIn = data.adjustments.find(
+      (item) => item.kind === "swap" && item.to === key
+    );
+    if (swapIn) return { type: "swap-in", adjustment: swapIn };
+    const removed = data.adjustments.find((item) => item.from === key);
+    if (removed) {
+      return {
+        type: removed.kind === "off" ? "off" : "swap-out",
+        adjustment: removed
+      };
+    }
+    return null;
+  }
+
   function getCoursesForDate(date) {
     const week = getWeekNumber(date);
     if (week < 1 || week > data.term.weeks) return [];
+    const adjustment = getAdjustmentForDate(date);
+    if (
+      adjustment &&
+      (adjustment.type === "off" || adjustment.type === "swap-out")
+    ) {
+      return [];
+    }
+    let day = date.getDay();
+    let activeWeek = week;
+    if (adjustment && adjustment.type === "swap-in") {
+      const source = parseDateKey(adjustment.adjustment.from);
+      day = source.getDay();
+      activeWeek = getWeekNumber(source);
+    }
     return data.courses
       .filter(
-        (course) => course.day === date.getDay() && isCourseActiveInWeek(course, week)
+        (course) => course.day === day && isCourseActiveInWeek(course, activeWeek)
       )
       .sort(
         (a, b) =>
@@ -582,6 +642,16 @@
     return removed;
   }
 
+  function deleteCourses(ids) {
+    const doomed = new Set(Array.isArray(ids) ? ids : []);
+    if (!doomed.size) return 0;
+    const before = data.courses.length;
+    data.courses = data.courses.filter((course) => !doomed.has(course.id));
+    const removed = before - data.courses.length;
+    if (removed) persist();
+    return removed;
+  }
+
   function restoreCourse(course) {
     if (!course || !course.id) return;
     if (getCourseById(course.id)) return;
@@ -591,6 +661,43 @@
 
   function clearCourses() {
     data.courses = [];
+    persist();
+  }
+
+  /* ---------- 调休与临时调课 ---------- */
+
+  function getAdjustments() {
+    return data.adjustments
+      .slice()
+      .sort((a, b) => a.from.localeCompare(b.from));
+  }
+
+  function addAdjustment(input) {
+    const clean = normalizeAdjustment(input);
+    if (!clean) throw new Error("请选择有效的日期");
+    const clash = data.adjustments.find(
+      (item) =>
+        item.from === clean.from ||
+        item.from === clean.to ||
+        (item.to && (item.to === clean.from || item.to === clean.to))
+    );
+    if (clash) throw new Error("这一天已经有调休或调课记录了");
+    data.adjustments.push(clean);
+    persist();
+    return clean;
+  }
+
+  function removeAdjustment(id) {
+    const index = data.adjustments.findIndex((item) => item.id === id);
+    if (index < 0) return false;
+    data.adjustments.splice(index, 1);
+    persist();
+    return true;
+  }
+
+  function clearAdjustments() {
+    if (!data.adjustments.length) return;
+    data.adjustments = [];
     persist();
   }
 
@@ -677,9 +784,33 @@
     return JSON.stringify(data, null, 2);
   }
 
+  function parseImportText(text) {
+    let raw = String(text == null ? "" : text)
+      .replace(/^\uFEFF/, "")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .trim();
+    raw = raw.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+    const first = raw.indexOf("{");
+    const last = raw.lastIndexOf("}");
+    if (first >= 0 && last > first) {
+      raw = raw.slice(first, last + 1);
+    }
+    let parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) parsed = { courses: parsed };
+    return parsed;
+  }
+
   function importData(text) {
-    const parsed = JSON.parse(text);
-    if (!parsed || !Array.isArray(parsed.courses)) {
+    let parsed;
+    try {
+      parsed = parseImportText(text);
+    } catch (error) {
+      throw new Error("无法解析 JSON，请确认复制了完整内容");
+    }
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("不是有效的课表数据");
+    }
+    if (!Array.isArray(parsed.courses) && !Array.isArray(parsed.adjustments)) {
       throw new Error("缺少 courses 列表");
     }
     const next = normalizeData(parsed);
@@ -688,7 +819,11 @@
     }
     data = next;
     persist();
-    return { courses: data.courses.length, periods: data.periods.length };
+    return {
+      courses: data.courses.length,
+      periods: data.periods.length,
+      adjustments: data.adjustments.length
+    };
   }
 
   function reloadData() {
@@ -733,9 +868,15 @@
     addCourse,
     updateCourse,
     deleteCourse,
+    deleteCourses,
     restoreCourse,
     clearCourses,
     resetData,
+    getAdjustments,
+    getAdjustmentForDate,
+    addAdjustment,
+    removeAdjustment,
+    clearAdjustments,
     getPeriods,
     savePeriods,
     getPeriodLabel,
