@@ -57,6 +57,22 @@
           <div class="watch-agenda-rows" id="agendaRows"></div>
         </section>
 
+        <section class="watch-week" id="weekView" aria-hidden="true">
+          <div class="watch-week-head">
+            <span>本周</span>
+            <span id="weekMeta">第 11 周 · 单周</span>
+          </div>
+          <div class="watch-week-rows" id="weekRows"></div>
+        </section>
+
+        <section class="watch-day" id="dayView" aria-hidden="true">
+          <div class="watch-day-head">
+            <button class="watch-day-back" id="dayBack" type="button" aria-label="返回本周">‹</button>
+            <span id="dayTitle">11/13 · 周四</span>
+          </div>
+          <div class="watch-day-rows" id="dayRows"></div>
+        </section>
+
         <section class="watch-settings" id="settingsView" aria-hidden="true">
           <div class="watch-settings-head">
             <span>设置</span>
@@ -90,7 +106,7 @@
         </footer>
 
         <div class="watch-dots" aria-hidden="true">
-          <i class="is-active"></i><i></i><i></i>
+          <i class="is-active"></i><i></i><i></i><i></i>
         </div>
       </div>
     </main>

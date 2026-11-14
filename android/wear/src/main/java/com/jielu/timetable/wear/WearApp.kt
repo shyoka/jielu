@@ -1,5 +1,6 @@
 package com.jielu.timetable.wear
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,10 +51,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.ExperimentalWearMaterialApi
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.ScalingLazyColumn
+import androidx.wear.compose.material.ScalingLazyListScope
+import androidx.wear.compose.material.ScalingLazyListState
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
@@ -85,38 +91,55 @@ fun WearApp() {
     val pagerState = rememberPagerState(initialPage = 0) { PAGE_COUNT }
 
     JieluWearTheme(settings.palette) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            timeText = { TimeText() },
-            positionIndicator = {
-                if (pagerState.currentPage != 0 || pagerState.isScrollInProgress) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        repeat(PAGE_COUNT) { index ->
-                            Box(
-                                modifier = Modifier
-                                    .size(if (index == pagerState.currentPage) 5.dp else 4.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (index == pagerState.currentPage) MaterialTheme.colors.primary
-                                        else JieluColors.SurfaceHigh
-                                    )
-                            )
-                        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                timeText = { TimeText() }
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    // 只组合当前页，滑动时再即时构建相邻页，减少圆表上的布局压力
+                    beyondBoundsPageCount = 0
+                ) { page ->
+                    when (page) {
+                        0 -> NowScreen(data, now, settings.showRing)
+                        1 -> AgendaScreen(data, now, settings.hideFinished)
+                        2 -> WeekScreen(data, now)
+                        else -> SettingsScreen(data)
                     }
                 }
             }
-        ) {
-            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                when (page) {
-                    0 -> NowScreen(data, now, settings.showRing)
-                    1 -> AgendaScreen(data, now, settings.hideFinished)
-                    2 -> WeekScreen(data, now)
-                    else -> SettingsScreen(data)
-                }
-            }
+            PageDots(
+                current = pagerState.currentPage,
+                scrolling = pagerState.isScrollInProgress,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 6.dp)
+            )
+        }
+    }
+}
+
+/** 页点移到表盘底部，避开顶部 TimeText；首屏且未滑动时隐藏，保持干净。 */
+@Composable
+private fun PageDots(current: Int, scrolling: Boolean, modifier: Modifier = Modifier) {
+    if (current == 0 && !scrolling) return
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(PAGE_COUNT) { index ->
+            val active = index == current
+            Box(
+                modifier = Modifier
+                    .size(if (active) 6.dp else 4.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (active) MaterialTheme.colors.primary else JieluColors.SurfaceHigh
+                    )
+            )
         }
     }
 }
@@ -133,6 +156,38 @@ private fun rememberNow(): State<LocalDateTime> {
         }
     }
     return state
+}
+
+/* ---------- 通用列表 ---------- */
+
+/**
+ * 圆表上的标准滚动容器：内容用 ScalingLazyColumn 跟随曲率缩放，
+ * 右侧叠加一条只在滚动时浮现的 PositionIndicator，滚动位置一目了然。
+ */
+@OptIn(ExperimentalWearMaterialApi::class)
+@Composable
+private fun ScrollColumn(
+    state: ScalingLazyListState,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 26.dp),
+    verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(4.dp),
+    content: ScalingLazyListScope.() -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = state,
+            verticalArrangement = verticalArrangement,
+            contentPadding = contentPadding,
+            content = content
+        )
+        PositionIndicator(
+            scalingLazyListState = state,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(vertical = 36.dp, horizontal = 2.dp)
+        )
+    }
 }
 
 /* ---------- 此刻 ---------- */
@@ -280,6 +335,7 @@ private fun MessageContent(title: String, big: String, hint: String) {
 @Composable
 private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime, hideFinished: Boolean) {
     var selected by remember { mutableStateOf<Course?>(null) }
+    BackHandler(enabled = selected != null) { selected = null }
     val current = selected
 
     if (current != null) {
@@ -297,11 +353,10 @@ private fun AgendaScreen(data: ScheduleData?, now: LocalDateTime, hideFinished: 
         today
     }
 
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
+    ScrollColumn(
         state = rememberScalingLazyListState(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 26.dp)
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 24.dp)
     ) {
         item {
             Column(
@@ -388,11 +443,10 @@ private fun CourseChip(course: Course, isNow: Boolean, isPast: Boolean, onClick:
 
 @Composable
 private fun CourseDetailScreen(course: Course, onBack: () -> Unit) {
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
+    ScrollColumn(
         state = rememberScalingLazyListState(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 26.dp)
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 24.dp)
     ) {
         item {
             Column(
@@ -469,8 +523,19 @@ private fun DetailRow(label: String, value: String) {
 
 /* ---------- 本周 ---------- */
 
+private data class WeekDay(val date: LocalDate, val courses: List<Course>)
+
 @Composable
 private fun WeekScreen(data: ScheduleData?, now: LocalDateTime) {
+    var selected by remember { mutableStateOf<LocalDate?>(null) }
+    BackHandler(enabled = selected != null) { selected = null }
+
+    val picked = selected
+    if (picked != null) {
+        DayScreen(data, picked, now) { selected = null }
+        return
+    }
+
     val today = now.toLocalDate()
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
     val week = data?.weekOf(today) ?: 0
@@ -479,12 +544,18 @@ private fun WeekScreen(data: ScheduleData?, now: LocalDateTime) {
         week % 2 == 1 -> "单周"
         else -> "双周"
     }
+    // 七天只算一次，避免每次重组重复扫描整份课表
+    val days = remember(data, monday) {
+        (0..6).map { index ->
+            val date = monday.plusDays(index.toLong())
+            WeekDay(date, data?.coursesOn(date).orEmpty())
+        }
+    }
 
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
+    ScrollColumn(
         state = rememberScalingLazyListState(),
         verticalArrangement = Arrangement.spacedBy(5.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 26.dp)
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 24.dp)
     ) {
         item {
             Column(
@@ -504,76 +575,134 @@ private fun WeekScreen(data: ScheduleData?, now: LocalDateTime) {
             }
         }
         items(7) { index ->
-            val date = monday.plusDays(index.toLong())
-            DayBlock(
-                date = date,
-                courses = data?.coursesOn(date).orEmpty(),
-                adjustment = data?.adjustmentOn(date),
-                isToday = date == today
+            val day = days[index]
+            WeekDayChip(day, day.date == today) { selected = day.date }
+        }
+        item {
+            Text(
+                text = "点一天看当天课表",
+                style = MaterialTheme.typography.caption2,
+                color = JieluColors.Muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
 }
 
 @Composable
-private fun DayBlock(
-    date: LocalDate,
-    courses: List<Course>,
-    adjustment: DayAdjustment?,
-    isToday: Boolean
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                if (isToday) MaterialTheme.colors.primary.copy(alpha = 0.16f)
-                else JieluColors.SurfaceHigh
-            )
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+private fun WeekDayChip(day: WeekDay, isToday: Boolean, onClick: () -> Unit) {
+    val label = if (isToday) "今天 · ${weekdayCN(day.date)}" else weekdayCN(day.date)
+    val detail = if (day.courses.isEmpty()) "无课" else "${day.courses.size} 节"
+    Chip(
+        modifier = Modifier.fillMaxWidth(),
+        label = {
             Text(
-                text = "${weekdayCN(date)} · ${date.monthValue}/${date.dayOfMonth}",
-                style = MaterialTheme.typography.title3,
+                text = label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color = if (isToday) MaterialTheme.colors.primary else JieluColors.OnSurface
             )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = if (courses.isEmpty()) "无课" else "${courses.size} 节",
-                style = MaterialTheme.typography.caption2,
-                color = JieluColors.Muted
+        },
+        secondaryLabel = {
+            Text(text = detail, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        onClick = onClick,
+        colors = if (isToday) {
+            ChipDefaults.primaryChipColors(
+                backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.20f),
+                contentColor = MaterialTheme.colors.primary,
+                secondaryContentColor = MaterialTheme.colors.primary
+            )
+        } else {
+            ChipDefaults.secondaryChipColors(
+                contentColor = JieluColors.OnSurface,
+                secondaryContentColor = JieluColors.Muted
             )
         }
-        if (adjustment != null) {
-            Text(
-                text = adjustmentLabel(adjustment),
-                style = MaterialTheme.typography.caption2,
-                color = MaterialTheme.colors.primary
-            )
-        }
-        courses.forEach { course ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+    )
+}
+
+@Composable
+private fun DayScreen(data: ScheduleData?, date: LocalDate, now: LocalDateTime, onBack: () -> Unit) {
+    var picked by remember { mutableStateOf<Course?>(null) }
+    BackHandler(enabled = picked != null) { picked = null }
+
+    val current = picked
+    if (current != null) {
+        CourseDetailScreen(current) { picked = null }
+        return
+    }
+
+    val courses = remember(data, date) { data?.coursesOn(date).orEmpty() }
+    val adjustment = data?.adjustmentOn(date)
+    val week = data?.weekOf(date) ?: 0
+    val parity = when {
+        week <= 0 -> ""
+        week % 2 == 1 -> "单周"
+        else -> "双周"
+    }
+    val today = now.toLocalDate()
+    val minutes = now.hour * 60 + now.minute
+
+    ScrollColumn(state = rememberScalingLazyListState()) {
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = course.start,
-                    style = MaterialTheme.typography.caption2,
-                    color = JieluColors.course(course.tone),
-                    modifier = Modifier.width(38.dp)
+                    text = "${date.monthValue} 月 ${date.dayOfMonth} 日 · ${weekdayCN(date)}",
+                    style = MaterialTheme.typography.caption1,
+                    color = if (date == today) MaterialTheme.colors.primary else JieluColors.Muted
                 )
                 Text(
-                    text = course.name,
-                    style = MaterialTheme.typography.caption1,
-                    color = JieluColors.OnSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = if (courses.isEmpty()) "没有课" else "${courses.size} 节课",
+                    style = MaterialTheme.typography.title2
+                )
+                if (week > 0) {
+                    Text(
+                        text = "第 $week 周${if (parity.isNotEmpty()) " · $parity" else ""}",
+                        style = MaterialTheme.typography.caption2,
+                        color = JieluColors.Muted
+                    )
+                }
+                if (adjustment != null) {
+                    Text(
+                        text = adjustmentLabel(adjustment),
+                        style = MaterialTheme.typography.caption2,
+                        color = MaterialTheme.colors.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        items(courses.size) { index ->
+            val course = courses[index]
+            val start = ScheduleData.minutesOf(course.start)
+            val end = ScheduleData.minutesOf(course.end)
+            val isNow = date == today && minutes in start until end
+            val isPast = date == today && minutes >= end
+            CourseChip(course, isNow, isPast) { picked = course }
+        }
+        if (courses.isEmpty()) {
+            item {
+                Text(
+                    text = "这天可以慢一点",
+                    style = MaterialTheme.typography.caption2,
+                    color = JieluColors.Muted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+        item {
+            Chip(
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("返回本周", maxLines = 1) },
+                onClick = onBack,
+                colors = ChipDefaults.secondaryChipColors()
+            )
         }
     }
 }
@@ -626,11 +755,10 @@ private fun SettingsScreen(data: ScheduleData?) {
         return
     }
 
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
+    ScrollColumn(
         state = rememberScalingLazyListState(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 26.dp)
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 24.dp)
     ) {
         item {
             Column(
@@ -903,11 +1031,10 @@ private fun ImportScreen(
     onCancel: () -> Unit,
     onImport: () -> Unit
 ) {
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
+    ScrollColumn(
         state = rememberScalingLazyListState(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 26.dp)
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 24.dp)
     ) {
         item {
             Text(

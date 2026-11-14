@@ -234,11 +234,8 @@
                 <span class="brand-name">节律</span>
               </a>
               <div class="bar-actions">
-                <button class="icon-btn" type="button" data-watch-open aria-label="预览手表端">
+                <button class="icon-btn" type="button" data-watch-download aria-label="下载手表版">
                   <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-watch"></use></svg>
-                </button>
-                <button class="avatar-small" type="button" id="avatarJump" aria-label="打开个人设置">
-                  <img src="assets/avatar.jpg" alt="" width="35" height="35" decoding="async" />
                 </button>
               </div>
             </header>
@@ -409,31 +406,16 @@
 
                   <section class="settings-group" aria-labelledby="watchLabel">
                     <h2 class="group-label" id="watchLabel">手表</h2>
-                    <div class="watch-feature">
-                      <div class="watch-feature-head">
-                        <span class="on-dark-kicker">WEAR OS</span>
-                        <span class="watch-connected"><i></i>Wear OS 3+</span>
-                      </div>
-                      <div class="watch-feature-main">
-                        <div class="mini-watch" aria-hidden="true">
-                          <span class="mini-watch-ring" id="miniWatchRing"></span>
-                          <span class="mini-time num" data-clock>10:37</span>
-                          <span class="mini-label">现在</span>
-                        </div>
-                        <div class="watch-copy">
-                          <h3>节律 for Wear OS</h3>
-                          <p>原生 Compose · 独立安装</p>
-                          <span class="watch-powertag">纯黑表盘 · 分钟级刷新</span>
-                        </div>
-                      </div>
-                      <div class="watch-feature-foot">
-                        <span class="watch-feature-note">没有常驻动画，抬手才看见。</span>
-                        <button class="btn-on-dark" type="button" data-watch-open>
-                          预览
-                          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
-                        </button>
-                      </div>
-                    </div>
+                    <button class="watch-download" type="button" data-watch-download>
+                      <span class="watch-download-icon">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-watch"></use></svg>
+                      </span>
+                      <span class="watch-download-copy">
+                        <b>下载手表版</b>
+                        <small>Wear OS 3+ · 原生 Compose · 独立安装</small>
+                      </span>
+                      <svg class="row-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                    </button>
                     <div class="settings-card settings-card--under-watch">
                       <button class="setting-row setting-row--action" type="button" data-send-watch>
                         <span class="icon-tile icon-tile--small"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-watch"></use></svg></span>
@@ -459,7 +441,7 @@
                         </svg>
                       </span>
                       <div class="about-app-copy">
-                        <div class="about-title-row"><h3>节律</h3><span class="version">1.5.0</span></div>
+                        <div class="about-title-row"><h3>节律</h3><span class="version">1.6.0</span></div>
                         <p>为小屏和手表而生的课程表。进入即课表，少一点翻找，多一点从容。</p>
                       </div>
                     </div>
@@ -527,7 +509,7 @@
 
                   <p class="settings-footer">
                     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lock"></use></svg>
-                    节律 1.5.0 · 数据仅存储在此设备
+                    节律 1.6.0 · 数据仅存储在此设备
                   </p>
                 </div>
               </section>
@@ -558,46 +540,6 @@
         </div>
       </div>
     </section>
-
-    <aside class="watch-aside" aria-label="手表端预览">
-      <div class="aside-label"><span class="aside-dot"></span>WEAR OS · 454 × 454</div>
-      <div class="watch-shell">
-        <iframe src="watch.html" title="节律手表端界面" loading="lazy"></iframe>
-      </div>
-      <div class="watch-aside-copy">
-        <strong>节律 · 手腕模式</strong>
-        <p>轻触表盘查看今日安排</p>
-      </div>
-      <div class="watch-tags">
-        <span>OLED 纯黑</span><span>分钟级刷新</span><span>无连续动画</span>
-      </div>
-    </aside>
-  </main>
-
-  <dialog class="watch-dialog" id="watchDialog" aria-labelledby="watchDialogTitle">
-    <div class="watch-dialog-panel">
-      <div class="watch-dialog-head">
-        <div>
-          <p class="eyebrow">Wear OS · 454 × 454</p>
-          <h2 id="watchDialogTitle">手腕上的节律</h2>
-        </div>
-        <button class="icon-btn" type="button" data-watch-close aria-label="关闭手表预览">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"></use></svg>
-        </button>
-      </div>
-      <div class="watch-frame">
-        <iframe data-src="watch.html" title="节律手表端界面"></iframe>
-      </div>
-      <p class="watch-dialog-hint">轻触表盘，在「此刻」「今日」「设置」之间切换。</p>
-      <div class="watch-dialog-actions">
-        <a class="btn-pill btn-pill--tonal" href="watch.html" target="_blank" rel="noopener">
-          单独打开
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-external"></use></svg>
-        </a>
-        <button class="btn-pill btn-pill--primary" type="button" data-watch-close>完成</button>
-      </div>
-    </div>
-  </dialog>
 
   <script src="assets/schedule.js"></script>
   <script src="assets/app.js"></script>

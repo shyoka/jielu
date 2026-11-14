@@ -47,7 +47,8 @@
 
 - 仓库里的 `wear/` 是一个**独立的 Wear OS 应用**，Kotlin + Compose for Wear OS 写成，不是网页套壳。
 - 按 Wear OS 的方式组织界面：`TimeText` 顶部时间、`ScalingLazyColumn` 随表盘曲率缩放、`Chip` 作为列表项、左右滑动换页，**没有底部导航栏**，只在底部留四个小圆点指示位置。
-- 四页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**本周**（按天列出七天全部课程，今天高亮，调休日带标注）／**设置**（配色、显示选项、调休重置、数据同步、关于）。
+- 四页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**本周**（先列出周一到周日，今天高亮并显示当天节数，点某一天进入当日详情）／**设置**（配色、显示选项、调休重置、数据同步、关于）。
+- 页面右侧有一条 `PositionIndicator` 滚动条，滚动时浮现、静止后淡出；分页圆点在表盘底边，不占顶部空间。
 - **手表上也能自定义**：四套配色（陶土 / 苔绿 / 鸢尾 / 潮汐）点一下就换，另外两个开关可以折叠已结束的课、关掉进度环只留文字。选择存进 `SharedPreferences`，重启仍在。
 - 纯黑背景，没有循环动画，时间与进度只在分钟变化时更新一次。
 - 主题固定为 `Theme.DeviceDefault.NoActionBar`，启动时再兜底隐藏 ActionBar。Wear OS 真机本来不出标题栏，但**运行完整 Android 系统的手表**会自带一条写着应用名的标题栏，这条不会再出现；带状态栏的机型上，系统栏仍由系统绘制。
@@ -56,7 +57,7 @@
   - **手机直推**：在手机「设置 → 手表 → 发送课表到手表」里点一下，通过 Wearable Data Layer 把整份课表发到手表；手表端由 `WearableListenerService` 接收并落到本地。
   - **文本导入**：手表上可以直接粘贴手机导出的 JSON，解析失败不会覆盖旧数据。
 - 设置页可以重置手表上看到的临时调休/调课（只改手表本地，手机下次推送会覆盖）。
-- 桌面浏览器右侧的手表预览是网页版 `watch.html`，三页并可以点配色（只影响预览，不写手机端偏好）；真机上装的是原生应用。
+- 手机端已移除手表预览：顶栏手表图标与「设置 → 手表 → 下载手表版」都会跳转 GitHub 发布页；`watch.html` 仍可单独打开，用来在浏览器里看同版式的四页界面。
 
 ### 外观
 
@@ -75,9 +76,10 @@
 | <img src="docs/screenshots/today-dark.png" width="240" /> | <img src="docs/screenshots/settings.png" width="240" /> | <img src="docs/screenshots/open-source.png" width="240" /> |
 
 <div align="center">
-  <img src="docs/screenshots/watch.png" width="260" alt="手表界面" />
-  <img src="docs/screenshots/watch-settings.png" width="260" alt="手表设置与配色" />
-  <p><sub>手表端（网页预览版，与原生版同版式）· 纯黑底 · 分钟级刷新 · 四套配色<br/>真机安装的是 <code>wear/</code> 里的原生 Compose 应用</sub></p>
+  <img src="docs/screenshots/watch.png" width="240" alt="手表此刻" />
+  <img src="docs/screenshots/watch-week.png" width="240" alt="手表本周" />
+  <img src="docs/screenshots/watch-settings.png" width="240" alt="手表设置与配色" />
+  <p><sub>手表端（网页预览版，与原生版同版式）· 纯黑底 · 分钟级刷新 · 四套配色<br/>本周页先列周一到周日，点进去看当天；底部圆点指示位置<br/>真机安装的是 <code>wear/</code> 里的原生 Compose 应用</sub></p>
 </div>
 
 ## 快速开始
@@ -93,7 +95,7 @@ python3 -m http.server 4173
 # 打开 http://localhost:4173/index.html
 ```
 
-- `index.html` —— 桌面浏览器里是"设计舞台"（左侧说明、中间手机、右侧手表预览）；手机宽度或触屏设备上自动变成全屏应用。
+- `index.html` —— 桌面浏览器里是单列设计舞台（窄屏时只留手机界面）；手机宽度或触屏设备上自动变成全屏应用。
 - `index.html?app=1` —— 强制全屏模式，APK 内部就是用这个地址加载的。
 - `watch.html` —— 单独打开就是 454 × 454 的手表界面。
 
@@ -129,7 +131,7 @@ keyPassword=******
 ```
 .
 ├── index.html                  # 手机端 + 桌面舞台
-├── watch.html                  # 手表端的网页预览（桌面右侧用）
+├── watch.html                  # 手表端的网页预览（可独立打开）
 ├── assets/
 │   ├── tokens.css              # 四套配色与 MD3 token
 │   ├── app.css                 # 手机端与舞台样式
@@ -142,7 +144,7 @@ keyPassword=******
 │   │   └── src/main/java/com/jielu/timetable/MainActivity.java
 │   └── wear/                   # 手表：Kotlin + Compose for Wear OS
 │       ├── src/main/java/com/jielu/timetable/wear/
-│       │   ├── WearApp.kt      # 三页界面与圆环
+│       │   ├── WearApp.kt      # 四页界面、周列表与圆环
 │       │   └── data/           # 课表模型、设置存储、Data Layer 接收
 │       └── src/test/           # 数据层单元测试
 └── docs/screenshots/           # README 截图
@@ -192,7 +194,7 @@ if (course.parity === "even") return week % 2 === 0;
 
 - **三页横向 pager**：`scroll-snap-type: x mandatory` + `scrollend` 同步底部导航，导航点击时短暂锁定滚动事件，避免高亮回弹。
 - **分钟对齐刷新**：`delay = 60000 - s * 1000 - ms + 40`，每分钟只在整点后触发一次重绘；`visibilitychange` 时挂起定时器。
-- **手表应用**：Kotlin + Compose for Wear OS（Material 2，稳定版），`ScalingLazyColumn` 负责曲率与缩放，`TimeText` 显示系统时间，页面用 Compose Foundation 的 `HorizontalPager` 左右切换，底部只有四个自绘圆点。
+- **手表应用**：Kotlin + Compose for Wear OS（Material 2，稳定版），`ScalingLazyColumn` 负责曲率与缩放，`TimeText` 显示系统时间，页面用 Compose Foundation 的 `HorizontalPager` 左右切换，底边只有四个自绘圆点；列表容器统一封装，右侧附带 `PositionIndicator`。
 - **手表功耗**：纯黑背景、无循环动画、无秒针；时间与进度由分钟对齐的协程驱动，只在整分钟后刷新一次。
 - **数据通道**：手机用 `Wearable.getDataClient().putDataItem()` 发 `/jielu/data`，手表由 `WearableListenerService` 接收；先查 `getConnectedNodes()`，没有配对节点就明确告诉用户，而不是假装发送成功。
 - **Android 壳**：`shouldInterceptRequest` 把 `https://appassets.androidplatform.net` 的请求映射到 `assets/www`，页面因此拥有安全上下文（`localStorage`、剪贴板 API 都可正常工作），同时完全离线。

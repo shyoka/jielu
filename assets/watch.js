@@ -26,16 +26,24 @@
   const agendaView = $("#agendaView");
   const nowView = $("#nowView");
   const settingsView = $("#settingsView");
+  const weekView = $("#weekView");
+  const weekRows = $("#weekRows");
+  const weekMeta = $("#weekMeta");
+  const dayView = $("#dayView");
+  const dayRows = $("#dayRows");
+  const dayTitle = $("#dayTitle");
+  const dayBack = $("#dayBack");
   const paletteLabel = $("#paletteLabel");
   const swatches = Array.from(document.querySelectorAll("[data-palette-pick]"));
   const watchArc = $("#watchArc");
   const dots = Array.from(document.querySelectorAll(".watch-dots i"));
 
   const PALETTE_NAMES = { clay: "陶土", moss: "苔绿", iris: "鸢尾", tide: "潮汐" };
-  const VIEW_LABELS = ["轻触查看今日安排", "轻触查看设置", "轻触返回此刻"];
+  const VIEW_LABELS = ["轻触查看今日安排", "轻触查看本周", "轻触查看设置", "轻触返回此刻"];
 
   let minuteTimer = null;
   let viewIndex = 0;
+  let dayKey = null;
 
   function escapeHTML(value) {
     return String(value)
@@ -201,22 +209,90 @@
     }
 
     buildAgenda(courses, nowMinutes, true);
+    if (viewIndex === 2) {
+      if (dayKey) renderDay(dayKey);
+      else renderWeek();
+    }
+  }
+
+  function renderWeek() {
+    const today = J.atMidnight(new Date());
+    const dates = J.getWeekDates(today);
+    const week = J.getWeekNumber(today);
+    const parity = J.getWeekParity(today);
+    weekMeta.textContent = week > 0 ? `第 ${week} 周${parity ? ` · ${parity}` : ""}` : "假期";
+
+    weekRows.innerHTML = dates
+      .map((date) => {
+        const courses = J.getCoursesForDate(date);
+        const isToday = J.sameDate(date, today);
+        return `<button class="watch-week-row${isToday ? " is-today" : ""}" type="button" data-week-day="${J.dateKey(date)}">
+          <span class="watch-week-name">${isToday ? "今天 · " : ""}周${J.weekdayCN(date, true)}</span>
+          <span class="watch-week-count">${courses.length ? `${courses.length} 节` : "无课"}</span>
+        </button>`;
+      })
+      .join("");
+  }
+
+  function renderDay(key) {
+    const date = J.parseDateKey(key);
+    const courses = J.getCoursesForDate(date);
+    const week = J.getWeekNumber(date);
+    const parity = J.getWeekParity(date);
+    dayTitle.textContent = `${date.getMonth() + 1}/${date.getDate()} · 周${J.weekdayCN(date, true)}`;
+    dayRows.innerHTML = courses.length
+      ? courses
+          .map(
+            (course) => `<div class="watch-day-row">
+              <span class="watch-day-time">${course.start}</span>
+              <span class="watch-day-name">${escapeHTML(course.name)}</span>
+            </div>`
+          )
+          .join("")
+      : `<div class="watch-agenda-empty">
+          <b>这天没有课</b>
+          <span>${week > 0 ? `第 ${week} 周${parity ? ` · ${parity}` : ""}` : "假期"}</span>
+        </div>`;
+  }
+
+  function applyView() {
+    const inDay = viewIndex === 2 && dayKey != null;
+    watchFace.classList.toggle("is-agenda", viewIndex === 1);
+    watchFace.classList.toggle("is-week", viewIndex === 2 && !inDay);
+    watchFace.classList.toggle("is-day", inDay);
+    watchFace.classList.toggle("is-settings", viewIndex === 3);
+    [nowView, agendaView, weekView, dayView, settingsView].forEach((view) =>
+      view.setAttribute("aria-hidden", "true")
+    );
+    const active = inDay ? dayView : [nowView, agendaView, weekView, settingsView][viewIndex];
+    active.setAttribute("aria-hidden", "false");
+    dots.forEach((dot, index) => dot.classList.toggle("is-active", index === Math.min(viewIndex, 3)));
+    watchFace.setAttribute("aria-label", VIEW_LABELS[viewIndex]);
+
+    if (viewIndex === 3) {
+      setArc(0, false);
+      return;
+    }
+    refresh();
+    if (viewIndex === 2) {
+      if (inDay) {
+        renderDay(dayKey);
+        setArc(0, false);
+      } else {
+        renderWeek();
+      }
+    }
   }
 
   function setView(next) {
-    viewIndex = (next + 3) % 3;
-    watchFace.classList.toggle("is-agenda", viewIndex === 1);
-    watchFace.classList.toggle("is-settings", viewIndex === 2);
-    [nowView, agendaView, settingsView].forEach((view, index) => {
-      view.setAttribute("aria-hidden", String(index !== viewIndex));
-    });
-    dots.forEach((dot, index) => dot.classList.toggle("is-active", index === viewIndex));
-    watchFace.setAttribute("aria-label", VIEW_LABELS[viewIndex]);
-    if (viewIndex === 2) {
-      setArc(0, false);
-    } else {
-      refresh();
-    }
+    viewIndex = ((next % 4) + 4) % 4;
+    if (viewIndex !== 2) dayKey = null;
+    applyView();
+  }
+
+  function openDay(key) {
+    dayKey = key;
+    applyView();
   }
 
   function cycleView() {
@@ -256,6 +332,19 @@
         applyPalette(palette);
         syncSwatches(palette);
       });
+    });
+
+    weekRows.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-week-day]");
+      if (!row) return;
+      event.stopPropagation();
+      openDay(row.dataset.weekDay);
+    });
+
+    dayBack.addEventListener("click", (event) => {
+      event.stopPropagation();
+      dayKey = null;
+      applyView();
     });
 
     watchFace.addEventListener("click", cycleView);

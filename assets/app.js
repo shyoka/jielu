@@ -50,7 +50,6 @@
   const bottomSheet = $("#bottomSheet");
   const sheetScrim = $("#sheetScrim");
   const sheetBody = $("#sheetBody");
-  const watchDialog = $("#watchDialog");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
   const initialPrefs = loadPrefs();
@@ -270,7 +269,9 @@
     issues: "https://github.com/shyoka/jielu/issues",
     profile: "https://github.com/shyoka",
     license: "MIT",
-    version: "1.5.0"
+    // 手表安装包与手机包放在同一发布页，latest 永远指向最新一版
+    wearRelease: "https://github.com/shyoka/jielu/releases/latest",
+    version: "1.6.0"
   };
 
   function openExternal(url) {
@@ -803,24 +804,6 @@
 
   /* ---------- 设置 ---------- */
 
-  function updateMiniWatch() {
-    const miniRing = $("#miniWatchRing");
-    if (!miniRing) return;
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const courses = J.getCoursesForDate(now);
-    const { current } = J.getCurrentAndNext(courses, nowMinutes);
-    let progress = 0;
-    if (current) {
-      const start = J.toMinutes(current.start);
-      const end = J.toMinutes(current.end);
-      progress = Math.min(1, Math.max(0, (nowMinutes - start) / (end - start)));
-    } else if (courses.length && nowMinutes >= J.toMinutes(courses[courses.length - 1].end)) {
-      progress = 1;
-    }
-    miniRing.style.setProperty("--mini-progress", `${Math.round(progress * 100)}%`);
-  }
-
   function renderSettingsDynamic() {
     const now = new Date();
     const week = J.getWeekNumber(now);
@@ -857,7 +840,6 @@
     }
 
     paletteName.textContent = `${PALETTES[state.palette]} · Material You`;
-    updateMiniWatch();
     $$("[data-theme-mode]", themeSegmented).forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.themeMode === state.theme));
     });
@@ -1741,7 +1723,6 @@
     renderToday({ resetScroll: false });
     renderCalendar();
     renderSettingsDynamic();
-    updateMiniWatch();
     syncWatchData();
   }
 
@@ -1790,22 +1771,6 @@
     }, 2200);
   }
 
-  /* ---------- 手表预览 ---------- */
-
-  function openWatchPreview() {
-    if (!watchDialog.open) {
-      watchDialog.showModal();
-    }
-    const frame = $("iframe", watchDialog);
-    if (frame && !frame.getAttribute("src")) {
-      frame.src = frame.dataset.src;
-    }
-  }
-
-  function closeWatchPreview() {
-    if (watchDialog.open) watchDialog.close();
-  }
-
   /* ---------- 事件绑定 ---------- */
 
   function bindEvents() {
@@ -1814,18 +1779,8 @@
       goToTodaySchedule();
     });
 
-    $("#avatarJump").addEventListener("click", () => {
-      goToPage(2);
-    });
-
-    $$("[data-watch-open]").forEach((button) => {
-      button.addEventListener("click", openWatchPreview);
-    });
-    $$("[data-watch-close]").forEach((button) => {
-      button.addEventListener("click", closeWatchPreview);
-    });
-    watchDialog.addEventListener("click", (event) => {
-      if (event.target === watchDialog) closeWatchPreview();
+    $$("[data-watch-download]").forEach((button) => {
+      button.addEventListener("click", () => openExternal(REPO.wearRelease));
     });
 
     $("#bottomNav").addEventListener("click", (event) => {
@@ -2344,7 +2299,6 @@
 
       if (
         !sheetOpen &&
-        !watchDialog.open &&
         (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
         document.activeElement &&
         !["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(
@@ -2447,7 +2401,6 @@
       renderSettingsDynamic();
     }
 
-    updateMiniWatch();
 
     if (J.sameDate(state.selectedDate, now)) {
       renderToday({ resetScroll: false });

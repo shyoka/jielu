@@ -559,3 +559,140 @@ body {
   font-size: 2.3cqw;
   letter-spacing: 0.01em;
 }
+
+/* ---------- 本周与日详情（第三页） ---------- */
+
+.watch-week,
+.watch-day {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0.5cqw 0 0;
+}
+
+.watch.is-week .watch-now,
+.watch.is-week .watch-bottom,
+.watch.is-day .watch-now,
+.watch.is-day .watch-bottom {
+  display: none;
+}
+
+.watch.is-week .watch-week,
+.watch.is-day .watch-day {
+  display: flex;
+}
+
+.watch-week-head,
+.watch-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 0 1.5cqw 1.9cqw;
+  color: rgba(245, 238, 232, 0.42);
+  font-size: 2.5cqw;
+  font-weight: 560;
+  letter-spacing: 0.03em;
+}
+
+.watch-week-head span:first-child {
+  color: rgba(245, 238, 232, 0.88);
+  font-size: 3.2cqw;
+}
+
+.watch-week-rows {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7cqw;
+}
+
+.watch-week-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+  min-height: 8.4cqw;
+  padding: 0.6cqw 2.6cqw;
+  border: 0;
+  border-radius: 3.2cqw;
+  background: transparent;
+  color: rgba(245, 238, 232, 0.78);
+  font: inherit;
+  font-size: 3cqw;
+  text-align: left;
+}
+
+.watch-week-row.is-today {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+
+.watch-week-count {
+  color: rgba(245, 238, 232, 0.4);
+  font-size: 2.5cqw;
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-week-row.is-today .watch-week-count {
+  color: color-mix(in srgb, var(--primary) 72%, transparent);
+}
+
+.watch-day-head {
+  justify-content: flex-start;
+  gap: 2cqw;
+}
+
+.watch-day-back {
+  display: grid;
+  place-items: center;
+  width: 7cqw;
+  height: 7cqw;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(245, 238, 232, 0.8);
+  font-size: 4.4cqw;
+  line-height: 1;
+}
+
+.watch-day-rows {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.8cqw;
+  overflow: hidden;
+}
+
+.watch-day-row {
+  display: grid;
+  grid-template-columns: 12cqw minmax(0, 1fr);
+  align-items: center;
+  gap: 2.2cqw;
+  min-height: 8.6cqw;
+  padding: 0.8cqw 2.2cqw;
+  border-radius: 3.3cqw;
+  color: rgba(245, 238, 232, 0.8);
+}
+
+.watch-day-time {
+  color: rgba(245, 238, 232, 0.4);
+  font-family: "Manrope", sans-serif;
+  font-size: 2.55cqw;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-day-name {
+  overflow: hidden;
+  font-size: 3cqw;
+  font-weight: 560;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
