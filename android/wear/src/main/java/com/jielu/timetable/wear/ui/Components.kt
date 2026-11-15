@@ -154,7 +154,8 @@ fun LoadingRing(
     stroke: Dp = 2.5.dp
 ) {
     val transition = rememberInfiniteTransition(label = "ring")
-    val angle by transition.animateFloat(
+    // 这里刻意不 by，留成 State 到 draw 阶段再读：转起来只重绘，不重组
+    val angle = transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing)),
@@ -178,7 +179,7 @@ fun LoadingRing(
         // 角度在绘制阶段读取，转起来只重绘这一小块，不牵动整页重组
         drawArc(
             color = accent,
-            startAngle = angle,
+            startAngle = angle.value,
             sweepAngle = 80f,
             useCenter = false,
             topLeft = Offset(inset, inset),
