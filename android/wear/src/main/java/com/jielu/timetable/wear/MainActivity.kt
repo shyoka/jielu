@@ -16,7 +16,9 @@ class MainActivity : ComponentActivity() {
         actionBar?.hide()
         window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
         SettingsStore.init(this)
-        ScheduleStore.ensureSample(this)
+        // 只挂上 context，真正的读盘与 JSON 解析在 IO 线程做，
+        // 首帧不必等课表解析完再画
+        ScheduleStore.init(this)
         setContent {
             WearApp()
         }

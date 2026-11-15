@@ -158,7 +158,7 @@ data class ScheduleData(
                         weekStart = item.optInt("weekStart", 1).coerceAtLeast(1),
                         weekEnd = item.optInt("weekEnd", term.weeks).coerceAtLeast(1),
                         parity = item.optString("parity", "all")
-                            .takeIf { it in setOf("all", "odd", "even") } ?: "all",
+                            .takeIf { it in PARITIES } ?: "all",
                         note = item.optString("note")
                     )
                 }
@@ -187,8 +187,13 @@ data class ScheduleData(
             }
         }
 
+        // 只编译一次。原来每解析一个时间字段就 new 一个 Regex，整份课表要编译上百次。
+        private val TIME_REGEX = Regex("^(\\d{1,2}):(\\d{2})$")
+
+        private val PARITIES = setOf("all", "odd", "even")
+
         private fun normalizeTime(value: String, fallback: String): String {
-            val m = Regex("^(\\d{1,2}):(\\d{2})$").find(value.trim()) ?: return fallback
+            val m = TIME_REGEX.find(value.trim()) ?: return fallback
             val hour = m.groupValues[1].toInt().coerceIn(0, 23)
             val minute = m.groupValues[2].toInt().coerceIn(0, 59)
             return "%02d:%02d".format(hour, minute)

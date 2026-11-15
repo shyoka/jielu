@@ -96,19 +96,21 @@ fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifie
         // 一屏就能看全（前后都滚不动）时不画指示器
         if (!state.canScrollBackward && !state.canScrollForward) return@Canvas
 
-        val radius = min(size.width, size.height) / 2f - 9.dp.toPx()
+        // 贴表盘右缘：半径只比表盘半径小 6dp。弧段控制在 52° 左右，
+        // 之前 104° 几乎占了右半圈，看起来又长又鼓。
+        val radius = min(size.width, size.height) / 2f - 6.dp.toPx()
         if (radius <= 0f) return@Canvas
         val center = Offset(size.width / 2f, size.height / 2f)
-        val arcStart = -52f
-        val arcSweep = 104f
+        val arcStart = -20f
+        val arcSweep = 52f
 
         val scrollable = (total - visible.size).coerceAtLeast(1)
         val progress = (first.toFloat() / scrollable).coerceIn(0f, 1f)
-        val thumbFraction = (visible.size.toFloat() / total).coerceIn(0.16f, 0.62f)
+        val thumbFraction = (visible.size.toFloat() / total).coerceIn(0.22f, 0.5f)
         val thumbSweep = arcSweep * thumbFraction
         val thumbStart = arcStart + (arcSweep - thumbSweep) * progress
         val scrolling = state.isScrollInProgress
-        val trackColor = JieluColors.OnSurface.copy(alpha = if (scrolling) 0.22f else 0.15f)
+        val trackColor = JieluColors.OnSurface.copy(alpha = if (scrolling) 0.18f else 0.12f)
 
         drawArc(
             color = trackColor,
@@ -117,16 +119,16 @@ fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifie
             useCenter = false,
             topLeft = Offset(center.x - radius, center.y - radius),
             size = Size(radius * 2f, radius * 2f),
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
         )
         drawArc(
-            color = thumbColor.copy(alpha = if (scrolling) 1f else 0.62f),
+            color = thumbColor.copy(alpha = if (scrolling) 0.95f else 0.55f),
             startAngle = thumbStart,
             sweepAngle = thumbSweep,
             useCenter = false,
             topLeft = Offset(center.x - radius, center.y - radius),
             size = Size(radius * 2f, radius * 2f),
-            style = Stroke(width = if (scrolling) 5.dp.toPx() else 4.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = if (scrolling) 3.5.dp.toPx() else 3.dp.toPx(), cap = StrokeCap.Round)
         )
     }
 }

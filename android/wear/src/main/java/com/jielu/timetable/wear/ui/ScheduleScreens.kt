@@ -41,11 +41,15 @@ import java.time.LocalDate
 /* ---------- 此刻 ---------- */
 
 @Composable
-fun NowScreen(data: ScheduleData?, showRing: Boolean) {
+fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
     val now by rememberNowState()
     val date = now.toLocalDate()
     val minutes = now.hour * 60 + now.minute
-    val state = data?.stateAt(date, minutes)
+    // 只在「换了一天」或「过了一分钟」时重算，配色切换之类的重组不重复扫课表
+    val state = remember(data, date, minutes) { data?.stateAt(date, minutes) }
+
+    // 首次加载时数据还没到，别先把「还没有课表」亮出来 —— 那是另一种说法
+    val showLoading = loading && data == null
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (state) {
@@ -56,13 +60,27 @@ fun NowScreen(data: ScheduleData?, showRing: Boolean) {
                 big = state.lastEnd,
                 hint = "最后一节 ${state.lastEnd} 下课"
             )
-            CourseState.Empty, null -> MessageContent(
-                title = "还没有课表",
-                big = "—",
-                hint = "设置页可以自己建课，也能粘贴课表或从手机同步"
-            )
+            CourseState.Empty, null -> if (showLoading) {
+                LoadingContent()
+            } else {
+                MessageContent(
+                    title = "还没有课表",
+                    big = "—",
+                    hint = "设置页可以自己建课，也能粘贴课表或从手机同步"
+                )
+            }
         }
     }
+}
+
+/** 首帧占位：只有一行字，不画环、不量列表。 */
+@Composable
+private fun LoadingContent() {
+    Text(
+        text = "正在载入课表",
+        style = MaterialTheme.typography.caption2,
+        color = JieluColors.Muted
+    )
 }
 
 @Composable

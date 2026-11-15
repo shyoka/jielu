@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
@@ -1403,6 +1405,8 @@ private fun CourseNewScreen(
 private fun ImportScreen(onBack: () -> Unit, onImported: (String) -> Unit) {
     var draft by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     ScrollColumn(
         state = rememberScalingLazyListState(),
@@ -1460,15 +1464,24 @@ private fun ImportScreen(onBack: () -> Unit, onImported: (String) -> Unit) {
         item {
             Chip(
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("导入") },
+                label = { Text(if (busy) "正在解析…" else "导入") },
                 onClick = {
-                    val parsed = ScheduleData.parse(draft)
-                    if (parsed == null) {
-                        error = "格式不对，需要含 courses 的 JSON"
-                    } else if (ScheduleStore.import(draft, "text")) {
-                        onImported("已导入 ${parsed.courses.size} 门课")
-                    } else {
-                        error = "导入失败，请检查内容"
+                    if (busy) return@Chip
+                    if (draft.isBlank()) {
+                        error = "先粘贴课表 JSON"
+                        return@Chip
+                    }
+                    error = ""
+                    busy = true
+                    // 几十 KB 的 JSON 在表上解析要百来毫秒，放到后台，别把界面钉住
+                    scope.launch {
+                        val count = ScheduleStore.importAsync(draft, "text")
+                        busy = false
+                        if (count > 0) {
+                            onImported("已导入 $count 门课")
+                        } else {
+                            error = "格式不对，需要含 courses 的 JSON"
+                        }
                     }
                 }
             )

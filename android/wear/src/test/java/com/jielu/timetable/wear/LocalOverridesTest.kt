@@ -146,13 +146,17 @@ class LocalOverridesTest {
     }
 
     @Test
-    fun `empty courses after deletion still parses`() {
+    fun `deleting every course leaves a valid empty schedule`() {
         val single = """
             {"term":{"start":"2026-08-31","weeks":20},
              "courses":[{"id":"c1","name":"唯一一门","day":1,"start":"08:00","end":"08:45"}]}
         """.trimIndent()
         val data = LocalOverrides.compose(single, LocalOverrides(deletedCourses = setOf("c1")))
-        assertNull("全删完了就该回到空课表", data)
+        // null 表示「从没有过课表」，删光只是课程为空；学期和作息还得留着
+        assertNotNull(data)
+        assertTrue(data!!.courses.isEmpty())
+        assertEquals("2026-08-31", data.term.start)
+        assertTrue(data.periods.isNotEmpty())
     }
 
     @Test
@@ -162,6 +166,66 @@ class LocalOverridesTest {
         assertNotNull(data)
         assertEquals(17, data!!.courses.size)
         assertEquals("2026-08-31", data.term.start)
+    }
+
+    /* ---------- 对象级合并（merge）：启动路径不再拼字符串重解析 ---------- */
+
+    @Test
+    fun `merge keeps both baseline and local courses`() {
+        val parsed = LocalOverrides.compose(base, LocalOverrides())!!
+        val data = LocalOverrides.merge(parsed, LocalOverrides(courses = listOf(course("local-course-1", "手建课", 4))))
+        assertNotNull(data)
+        assertEquals(3, data!!.courses.size)
+        assertEquals("手建课", data.courses.last().name)
+        // 学期、作息、基线调休原样带过来
+        assertEquals("2026-08-31", data.term.start)
+        assertEquals(2, data.periods.size)
+        assertEquals(1, data.adjustments.size)
+    }
+
+    @Test
+    fun `merge lets local adjustment win on the same day`() {
+        val parsed = LocalOverrides.compose(base, LocalOverrides())!!
+        val local = Adjustment(
+            id = "local-adj-1", kind = "off", from = "2026-09-07", to = "", note = ""
+        )
+        val data = LocalOverrides.merge(parsed, LocalOverrides(adjustments = listOf(local)))
+        assertNotNull(data)
+        assertEquals(1, data!!.adjustments.size)
+        assertEquals("local-adj-1", data.adjustments.first().id)
+        assertTrue(data.coursesOn(LocalDate.parse("2026-09-07")).isEmpty())
+    }
+
+    @Test
+    fun `merge applies term and periods overrides over the baseline`() {
+        val parsed = LocalOverrides.compose(base, LocalOverrides())!!
+        val data = LocalOverrides.merge(
+            parsed,
+            LocalOverrides(
+                termStart = "2026-09-07",
+                termWeeks = 16,
+                periods = listOf(Period("09:00", "09:45"))
+            )
+        )
+        assertNotNull(data)
+        assertEquals("2026-09-07", data!!.term.start)
+        assertEquals(16, data.term.weeks)
+        assertEquals(1, data.periods.size)
+        assertEquals("09:00", data.periods.first().start)
+    }
+
+    @Test
+    fun `merge without baseline only uses local courses`() {
+        val data = LocalOverrides.merge(null, LocalOverrides(courses = listOf(course("local-course-1", "唯一一门", 2))))
+        assertNotNull(data)
+        assertEquals(1, data!!.courses.size)
+        assertEquals(LocalOverrides.DEFAULT_TERM_START, data.term.start)
+        assertEquals(LocalOverrides.DEFAULT_PERIODS.size, data.periods.size)
+    }
+
+    @Test
+    fun `merge returns null when there is nothing at all`() {
+        assertNull(LocalOverrides.merge(null, LocalOverrides()))
     }
 
 }

@@ -1,8 +1,13 @@
 package com.jielu.timetable.wear.data
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.time.LocalDate
 
@@ -15,6 +20,12 @@ import java.time.LocalDate
  *
  * 每次读取都把两层合成成一份 [ScheduleData]，因此手机再推一次不会覆盖手表上的改动，
  * 没有配对手机的手表也能只靠覆盖层独立使用。
+ *
+ * 性能上也做了两件事，避免「刚点开先卡一下」：
+ *  1. 首次加载（读 SharedPreferences、读 assets、解析 JSON）全部在 IO 线程，
+ *     界面先画出来，数据到了再刷新；
+ *  2. 基线解析结果缓存在内存里，合成走 [LocalOverrides.merge] 的对象级合并，
+ *     不再每次「拼字符串 → 重新解析」。
  */
 object ScheduleStore {
     private const val PREFS = "jielu.wear"
@@ -26,11 +37,26 @@ object ScheduleStore {
     private const val LOCAL_ADJUSTMENT_PREFIX = "local-adj-"
     private const val LOCAL_COURSE_PREFIX = "local-course-"
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private var appContext: Context? = null
+
+    /** UI 线程改覆盖层、IO 线程读盘，用 volatile 保证可见性。 */
+    @Volatile
     private var overrides = LocalOverrides()
+
+    /** 读盘与「手机推来新数据」都可能同时发生，串行化，避免旧数据把新数据盖回去。 */
+    private val ioLock = Any()
+
+    /** 已解析的基线，避免每次合成/读取都重新解析整份 JSON。 */
+    @Volatile
+    private var base: ScheduleData? = null
 
     private val _data = MutableStateFlow<ScheduleData?>(null)
     val data: StateFlow<ScheduleData?> = _data
+
+    private val _loading = MutableStateFlow(true)
+    val loading: StateFlow<Boolean> = _loading
 
     private val _syncedAt = MutableStateFlow(0L)
     val syncedAt: StateFlow<Long> = _syncedAt
@@ -43,42 +69,99 @@ object ScheduleStore {
     val localEdited: StateFlow<Boolean> = _localEdited
 
     fun init(context: Context) {
-        if (appContext == null) {
-            appContext = context.applicationContext
-            reload()
+        if (appContext != null) return
+        appContext = context.applicationContext
+        // 解析放到 IO：界面可以先出来，数据到了再刷新，不必等 JSON 解析完
+        scope.launch { loadBlocking() }
+    }
+
+    /** 重新从磁盘读一遍（一般用不到，保留给调试与外部刷新）。 */
+    fun reload() {
+        if (appContext == null) return
+        scope.launch { loadBlocking() }
+    }
+
+    private fun loadBlocking() {
+        val ctx = appContext ?: return
+        synchronized(ioLock) {
+            val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            overrides = LocalOverrides.parse(prefs.getString(KEY_OVERLAY, null))
+            base = prefs.getString(KEY_JSON, null)?.let { ScheduleData.parse(it) }
+            _syncedAt.value = prefs.getLong(KEY_SYNCED_AT, 0L)
+            _source.value = prefs.getString(KEY_SOURCE, "") ?: ""
+            publish()
+            // 首次打开给一份示例，避免对着空白表盘
+            if (base == null && overrides.courses.isEmpty()) seedSample(ctx)
+            _loading.value = false
         }
     }
 
-    fun reload() {
-        val ctx = appContext ?: return
-        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        overrides = LocalOverrides.parse(prefs.getString(KEY_OVERLAY, null))
-        _data.value = LocalOverrides.compose(prefs.getString(KEY_JSON, null), overrides)
-        _syncedAt.value = prefs.getLong(KEY_SYNCED_AT, 0L)
-        _source.value = prefs.getString(KEY_SOURCE, "") ?: ""
-        _localEdited.value = !overrides.isEmpty
+    private fun seedSample(ctx: Context) {
+        val raw = runCatching {
+            ctx.assets.open("sample.json").bufferedReader().use(BufferedReader::readText)
+        }.getOrNull() ?: return
+        val parsed = ScheduleData.parse(raw) ?: return
+        base = parsed
+        persistBaseline(ctx, raw, "sample")
+        publish()
+    }
+
+    /**
+     * 重新载入内置示例（设置页「重新载入示例」用）。
+     * 同样在后台做，界面先回到设置页，数据到了再刷新。
+     */
+    fun ensureSample(context: Context) {
+        val firstLoad = appContext == null
+        init(context)
+        if (firstLoad) return
+        _loading.value = true
+        scope.launch { loadBlocking() }
     }
 
     /** 返回是否解析成功；失败时不覆盖旧数据。 */
     fun import(raw: String, source: String): Boolean {
         val ctx = appContext ?: return false
-        if (ScheduleData.parse(raw) == null) return false
-        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs.edit()
+        val parsed = ScheduleData.parse(raw) ?: return false
+        applyBaseline(ctx, raw, parsed, source)
+        return true
+    }
+
+    /**
+     * 导入课表，解析放到 IO 线程。返回课程数，失败返回 -1。
+     * 设置页粘贴导入走这个入口，避免一大段 JSON 把界面卡住。
+     */
+    suspend fun importAsync(raw: String, source: String): Int = withContext(Dispatchers.IO) {
+        val ctx = appContext ?: return@withContext -1
+        val parsed = ScheduleData.parse(raw) ?: return@withContext -1
+        applyBaseline(ctx, raw, parsed, source)
+        parsed.courses.size
+    }
+
+    private fun applyBaseline(ctx: Context, raw: String, parsed: ScheduleData, source: String) {
+        synchronized(ioLock) {
+            base = parsed
+            persistBaseline(ctx, raw, source)
+            publish()
+            _loading.value = false
+        }
+    }
+
+    private fun persistBaseline(ctx: Context, raw: String, source: String) {
+        val now = System.currentTimeMillis()
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_JSON, raw)
-            .putLong(KEY_SYNCED_AT, System.currentTimeMillis())
+            .putLong(KEY_SYNCED_AT, now)
             .putString(KEY_SOURCE, source)
             .apply()
-        _syncedAt.value = System.currentTimeMillis()
+        _syncedAt.value = now
         _source.value = source
-        recompose()
-        return _data.value != null
     }
 
     fun clear() {
         val ctx = appContext ?: return
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
         overrides = LocalOverrides()
+        base = null
         _data.value = null
         _syncedAt.value = 0L
         _source.value = ""
@@ -204,13 +287,13 @@ object ScheduleStore {
         if (overrides.isEmpty) return
         overrides = LocalOverrides()
         persistOverrides()
-        recompose()
+        publish()
     }
 
     private fun updateOverrides(block: (LocalOverrides) -> LocalOverrides) {
         overrides = block(overrides)
         persistOverrides()
-        recompose()
+        publish()
     }
 
     private fun persistOverrides() {
@@ -220,21 +303,10 @@ object ScheduleStore {
             .apply()
     }
 
-    private fun recompose() {
-        val ctx = appContext ?: return
-        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        _data.value = LocalOverrides.compose(prefs.getString(KEY_JSON, null), overrides)
+    /** 合成一次并推给界面。对象级合并只是几次列表拷贝，主线程也够快。 */
+    private fun publish() {
+        _data.value = LocalOverrides.merge(base, overrides)
         _localEdited.value = !overrides.isEmpty
-    }
-
-    /** 首次打开时给一份示例，避免对着空白表盘。 */
-    fun ensureSample(context: Context) {
-        init(context)
-        if (_data.value != null) return
-        runCatching {
-            val raw = context.assets.open("sample.json").bufferedReader().use(BufferedReader::readText)
-            import(raw, "sample")
-        }
     }
 
     private val TONES = listOf("clay", "sage", "sky", "iris", "amber", "rose")

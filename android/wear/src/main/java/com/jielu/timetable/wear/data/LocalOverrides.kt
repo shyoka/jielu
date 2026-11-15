@@ -94,61 +94,46 @@ data class LocalOverrides(
         }
 
         /**
-         * 把基线和覆盖层合成为一份可解析的课表 JSON。
-         * 基线为空但本地已有课程时同样成立，这样没手机也能用。
+         * 把基线和覆盖层合成（保留旧入口，签名不变）。
+         * 解析一次基线后交给 [merge] 做对象级合并。
          */
-        fun compose(base: String?, overrides: LocalOverrides): ScheduleData? {
-            if (base.isNullOrBlank() && overrides.courses.isEmpty() && overrides.periods == null) {
+        fun compose(base: String?, overrides: LocalOverrides): ScheduleData? =
+            merge(base?.takeIf { it.isNotBlank() }?.let { ScheduleData.parse(it) }, overrides)
+
+        /**
+         * 基线 + 覆盖层 = 当前生效的课表。
+         *
+         * 这里直接在对象上合并，不再「拼 JSON 字符串 → 重新解析」——
+         * 首次启动因此只解析一遍，用户在表上改一次课表也只是几次列表拷贝，
+         * 不会每次都重新扫一遍全部课程。
+         */
+        fun merge(base: ScheduleData?, overrides: LocalOverrides): ScheduleData? {
+            if (base == null && overrides.courses.isEmpty() && overrides.periods == null) {
                 return null
             }
-            val root = base?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
-
-            val term = root.optJSONObject("term") ?: JSONObject()
-            if (term.optString("start").length < 10) term.put("start", DEFAULT_TERM_START)
-            if (term.optInt("weeks", 0) <= 0) term.put("weeks", DEFAULT_TERM_WEEKS)
-            overrides.termStart?.let { term.put("start", it) }
-            overrides.termWeeks?.let { term.put("weeks", it) }
-            root.put("term", term)
-
-            val periods = overrides.periods
-                ?: root.optJSONArray("periods")?.let { array ->
-                    (0 until array.length()).mapNotNull { index ->
-                        array.optJSONObject(index)?.let { item ->
-                            val start = item.optString("start")
-                            val end = item.optString("end")
-                            if (start.isBlank() || end.isBlank()) null else Period(start, end)
-                        }
-                    }
-                }?.takeIf { it.isNotEmpty() }
+            val term = Term(
+                start = overrides.termStart ?: base?.term?.start ?: DEFAULT_TERM_START,
+                weeks = overrides.termWeeks ?: base?.term?.weeks ?: DEFAULT_TERM_WEEKS
+            )
+            val periods = overrides.periods?.takeIf { it.isNotEmpty() }
+                ?: base?.periods?.takeIf { it.isNotEmpty() }
                 ?: DEFAULT_PERIODS
-            root.put("periods", periodsToJson(periods))
 
-            val courses = JSONArray()
-            root.optJSONArray("courses")?.let { array ->
-                for (index in 0 until array.length()) {
-                    val item = array.optJSONObject(index) ?: continue
-                    if (item.optString("id") in overrides.deletedCourses) continue
-                    courses.put(item)
-                }
-            }
-            overrides.courses.forEach { courses.put(it.toJson()) }
-            root.put("courses", courses)
+            val kept = base?.courses.orEmpty().filterNot { it.id in overrides.deletedCourses }
+            val courses = if (overrides.courses.isEmpty()) kept else kept + overrides.courses
 
-            val adjustments = JSONArray()
+            // 本地在同一个「源日期」上新建了调整，基线那条让位
             val localFroms = overrides.adjustments.map { it.from }.toSet()
-            root.optJSONArray("adjustments")?.let { array ->
-                for (index in 0 until array.length()) {
-                    val item = array.optJSONObject(index) ?: continue
-                    if (item.optString("id") in overrides.suppressedAdjustments) continue
-                    // 本地在同一个「源日期」上新建了调整，基线那条让位
-                    if (item.optString("from") in localFroms) continue
-                    adjustments.put(item)
-                }
+            val baselineAdjustments = base?.adjustments.orEmpty().filterNot {
+                it.id in overrides.suppressedAdjustments || it.from in localFroms
             }
-            overrides.adjustments.forEach { adjustments.put(it.toJson()) }
-            root.put("adjustments", adjustments)
+            val adjustments = if (overrides.adjustments.isEmpty()) {
+                baselineAdjustments
+            } else {
+                baselineAdjustments + overrides.adjustments
+            }
 
-            return ScheduleData.parse(root.toString())
+            return ScheduleData(term, periods, courses, adjustments)
         }
 
         private fun adjustmentOf(item: JSONObject): Adjustment? {
