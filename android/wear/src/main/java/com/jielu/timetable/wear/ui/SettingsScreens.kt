@@ -398,14 +398,14 @@ private fun PaletteRow(selectedKey: String) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
                     .clickable { SettingsStore.setPalette(palette.key) }
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(if (selected) 26.dp else 21.dp)
+                        .size(if (selected) 23.dp else 19.dp)
                         .clip(CircleShape)
                         .background(Color(palette.accent))
                 ) {
@@ -811,7 +811,7 @@ private fun TermScreen(data: ScheduleData?, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "${start.year} 年 ${start.monthValue} 月 ${start.dayOfMonth} 日",
+                    text = "${start.year}年${start.monthValue}月${start.dayOfMonth}日",
                     style = MaterialTheme.typography.title3,
                     maxLines = 1
                 )
@@ -1013,12 +1013,12 @@ private fun TimeStepper(time: String, onShift: (Int) -> Unit) {
         )
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                StepButton("−5", { onShift(-5) }, size = 40)
-                StepButton("+5", { onShift(5) }, size = 40)
+                StepButton("−5", { onShift(-5) }, size = 38)
+                StepButton("+5", { onShift(5) }, size = 38)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                StepButton("−1", { onShift(-1) }, size = 40)
-                StepButton("+1", { onShift(1) }, size = 40)
+                StepButton("−1", { onShift(-1) }, size = 38)
+                StepButton("+1", { onShift(1) }, size = 38)
             }
         }
     }

@@ -86,7 +86,6 @@ fun ScrollColumn(
  */
 @Composable
 fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifier) {
-    val trackColor = JieluColors.OnSurface.copy(alpha = 0.14f)
     val thumbColor = MaterialTheme.colors.primary
     Canvas(modifier = modifier.fillMaxSize()) {
         val info = state.layoutInfo
@@ -94,9 +93,8 @@ fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifie
         val visible = info.visibleItemsInfo
         if (total <= 0 || visible.isEmpty()) return@Canvas
         val first = visible.first().index
-        val last = visible.last().index
-        // 一屏就能看全，不需要指示器
-        if (first == 0 && last >= total - 1) return@Canvas
+        // 一屏就能看全（前后都滚不动）时不画指示器
+        if (!state.canScrollBackward && !state.canScrollForward) return@Canvas
 
         val radius = min(size.width, size.height) / 2f - 9.dp.toPx()
         if (radius <= 0f) return@Canvas
@@ -110,6 +108,7 @@ fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifie
         val thumbSweep = arcSweep * thumbFraction
         val thumbStart = arcStart + (arcSweep - thumbSweep) * progress
         val scrolling = state.isScrollInProgress
+        val trackColor = JieluColors.OnSurface.copy(alpha = if (scrolling) 0.22f else 0.15f)
 
         drawArc(
             color = trackColor,
