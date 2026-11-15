@@ -75,11 +75,16 @@ fun <T : Any> StackLayer(
         if (!leaving) {
             leaving = true
             scope.launch {
-                progress.animateTo(0f, LevelExit)
-                // 只剩这一级时，退回后 Pager 就是背景，进度留在 0 正好
-                if (stack.size > 1) progress.snapTo(1f)
-                onPop()
-                leaving = false
+                // 动画有可能被别的 snapTo 取消，finally 兜住，否则 leaving 卡在 true
+                // 就再也退不出去了
+                try {
+                    progress.animateTo(0f, LevelExit)
+                    // 只剩这一级时，退回后 Pager 就是背景，进度留在 0 正好
+                    if (stack.size > 1) progress.snapTo(1f)
+                    onPop()
+                } finally {
+                    leaving = false
+                }
             }
         }
     }
@@ -88,9 +93,12 @@ fun <T : Any> StackLayer(
         if (!leaving) {
             leaving = true
             scope.launch {
-                progress.animateTo(0f, LevelExit)
-                onClear()
-                leaving = false
+                try {
+                    progress.animateTo(0f, LevelExit)
+                    onClear()
+                } finally {
+                    leaving = false
+                }
             }
         }
     }
@@ -114,12 +122,15 @@ fun <T : Any> StackLayer(
                         scope.launch { progress.animateTo(1f, LevelEnter) }
                     },
                     onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        // 向右拖 → 进度减小 → 页面右移、露出上一级
-                        val delta = -dragAmount / size.width.toFloat()
-                        // UNDISPATCHED 让 snapTo 当场生效，拖动跟手且不会排到下一帧
-                        scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                            progress.snapTo((progress.value + delta).coerceIn(0f, 1f))
+                        // 退场动画期间不再接管拖动，免得把动画打断在半路
+                        if (!leaving) {
+                            change.consume()
+                            // 向右拖 → 进度减小 → 页面右移、露出上一级
+                            val delta = -dragAmount / size.width.toFloat()
+                            // UNDISPATCHED 让 snapTo 当场生效，拖动跟手且不会排到下一帧
+                            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                progress.snapTo((progress.value + delta).coerceIn(0f, 1f))
+                            }
                         }
                     }
                 )
