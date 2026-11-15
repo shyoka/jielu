@@ -135,10 +135,13 @@ data class LocalOverrides(
             root.put("courses", courses)
 
             val adjustments = JSONArray()
+            val localFroms = overrides.adjustments.map { it.from }.toSet()
             root.optJSONArray("adjustments")?.let { array ->
                 for (index in 0 until array.length()) {
                     val item = array.optJSONObject(index) ?: continue
                     if (item.optString("id") in overrides.suppressedAdjustments) continue
+                    // 本地在同一个「源日期」上新建了调整，基线那条让位
+                    if (item.optString("from") in localFroms) continue
                     adjustments.put(item)
                 }
             }

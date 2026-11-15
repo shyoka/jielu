@@ -101,16 +101,11 @@ object ScheduleStore {
             to = if (normalized == "off") "" else to.toString(),
             note = note.trim()
         )
-        // 基线里同一天若已有调整，先屏蔽掉，避免两条规则打架
-        val conflicts = _data.value?.adjustments
-            .orEmpty()
-            .filter { it.from == adjustment.from && !it.id.startsWith(LOCAL_ADJUSTMENT_PREFIX) }
-            .map { it.id }
+        // 同一天只留一条本地规则；基线里同一天的规则由合成阶段自动让位
         updateOverrides { current ->
             current.copy(
                 adjustments = current.adjustments
-                    .filterNot { it.from == adjustment.from } + adjustment,
-                suppressedAdjustments = current.suppressedAdjustments + conflicts
+                    .filterNot { it.from == adjustment.from } + adjustment
             )
         }
         return true

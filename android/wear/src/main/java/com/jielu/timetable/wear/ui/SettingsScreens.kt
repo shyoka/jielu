@@ -548,6 +548,7 @@ private fun AdjustmentWizard(
     var target by remember { mutableStateOf<LocalDate?>(null) }
     var sourceDate by remember { mutableStateOf<LocalDate?>(null) }
     var weekOffset by remember { mutableStateOf(0) }
+    BackHandler(enabled = step > 0) { step -= 1 }
 
     when (step) {
         0 -> ScrollColumn(
@@ -1219,6 +1220,8 @@ private fun CourseNewScreen(
     var periodIndex by remember { mutableStateOf(0) }
     var name by remember { mutableStateOf("") }
     var room by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    BackHandler(enabled = step > 0) { step -= 1 }
 
     when (step) {
         0 -> ScrollColumn(
@@ -1299,9 +1302,9 @@ private fun CourseNewScreen(
                 ) {
                     Text(text = weekdayLabel(day), style = MaterialTheme.typography.title3)
                     Text(
-                        text = "第 ${periodIndex + 1} 节 · 起个名字",
+                        text = error.ifBlank { "第 ${periodIndex + 1} 节 · 起个名字" },
                         style = MaterialTheme.typography.caption2,
-                        color = JieluColors.Muted
+                        color = if (error.isBlank()) JieluColors.Muted else MaterialTheme.colors.primary
                     )
                 }
             }
@@ -1360,9 +1363,13 @@ private fun CourseNewScreen(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("保存课程") },
                     onClick = {
-                        val period = periods[periodIndex]
-                        if (ScheduleStore.addCourse(day, name, period.start, period.end, room)) {
+                        val period = periods.getOrNull(periodIndex) ?: periods.first()
+                        if (name.isBlank()) {
+                            error = "先给课程起个名字"
+                        } else if (ScheduleStore.addCourse(day, name, period.start, period.end, room)) {
                             onSaved("已添加 ${name.trim()}")
+                        } else {
+                            error = "保存失败，检查一下时间"
                         }
                     },
                     colors = ChipDefaults.primaryChipColors(
