@@ -47,16 +47,17 @@
 
 - 仓库里的 `wear/` 是一个**独立的 Wear OS 应用**，Kotlin + Compose for Wear OS 写成，不是网页套壳。
 - 按 Wear OS 的方式组织界面：`TimeText` 顶部时间、`ScalingLazyColumn` 随表盘曲率缩放、`Chip` 作为列表项、左右滑动换页，**没有底部导航栏**，只在底部留四个小圆点指示位置。
-- 四页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**本周**（先列出周一到周日，今天高亮并显示当天节数，点某一天进入当日详情）／**设置**（配色、显示选项、调休重置、数据同步、关于）。
-- 页面右侧有一条 `PositionIndicator` 滚动条，滚动时浮现、静止后淡出；分页圆点在表盘底边，不占顶部空间。
+- 四页：**此刻**（正在上课的课程名、地点、剩余分钟 + 沿表盘边缘的进度弧）／**今日**（今日课程列表，点开看教师、类型、周次、备注）／**本周**（先列出周一到周日，今天高亮并显示当天节数，点某一天进入当日详情）／**设置**（配色、显示选项、课表编辑、数据、关于）。
+- 列表右侧是一条**贴表盘弧线的滚动指示条**：需要滚动时常显，滚动中变粗变亮，内容一屏放得下时自动隐藏；分页圆点在表盘底边，不占顶部空间。
 - **手表上也能自定义**：四套配色（陶土 / 苔绿 / 鸢尾 / 潮汐）点一下就换，另外两个开关可以折叠已结束的课、关掉进度环只留文字。选择存进 `SharedPreferences`，重启仍在。
 - 纯黑背景，没有循环动画，时间与进度只在分钟变化时更新一次。
 - 主题固定为 `Theme.DeviceDefault.NoActionBar`，启动时再兜底隐藏 ActionBar。Wear OS 真机本来不出标题栏，但**运行完整 Android 系统的手表**会自带一条写着应用名的标题栏，这条不会再出现；带状态栏的机型上，系统栏仍由系统绘制。
 - 设置页底部署名 **shyoka**（圆形头像，点击用系统浏览器打开 GitHub 主页）与 WorkBuddy。
-- 数据来源两条：
+- 数据来源三条，前两条都不是必需的：
   - **手机直推**：在手机「设置 → 手表 → 发送课表到手表」里点一下，通过 Wearable Data Layer 把整份课表发到手表；手表端由 `WearableListenerService` 接收并落到本地。
   - **文本导入**：手表上可以直接粘贴手机导出的 JSON，解析失败不会覆盖旧数据。
-- 设置页可以重置手表上看到的临时调休/调课（只改手表本地，手机下次推送会覆盖）。
+  - **在表上直接建**：没有手机、没有 GMS 也能用，见下一节。
+- **手表是独立的，不绑手机**：本机有一层覆盖数据（`LocalOverrides`），手机推送只是基线。手表上可以自己建课、删课、调休、改学期和作息，手机再推送也不会冲掉这些改动；设置页会标注「本机已改」，可一键清除。
 - 手机端已移除手表预览：顶栏手表图标与「设置 → 手表 → 下载手表版」都会跳转 GitHub 发布页；`watch.html` 仍可单独打开，用来在浏览器里看同版式的四页界面。
 
 ### 外观
@@ -144,9 +145,10 @@ keyPassword=******
 │   │   └── src/main/java/com/jielu/timetable/MainActivity.java
 │   └── wear/                   # 手表：Kotlin + Compose for Wear OS
 │       ├── src/main/java/com/jielu/timetable/wear/
-│       │   ├── WearApp.kt      # 四页界面、周列表与圆环
-│       │   └── data/           # 课表模型、设置存储、Data Layer 接收
-│       └── src/test/           # 数据层单元测试
+│       │   ├── WearApp.kt      # 入口：四页 Pager、底边页点
+│       │   ├── ui/             # 此刻/今日/本周界面、设置与编辑页、弧形滚动条
+│       │   └── data/           # 课表模型、本地覆盖层、设置存储、Data Layer 接收
+│       └── src/test/           # 数据层单元测试（24 个）
 └── docs/screenshots/           # README 截图
 ```
 
@@ -194,7 +196,7 @@ if (course.parity === "even") return week % 2 === 0;
 
 - **三页横向 pager**：`scroll-snap-type: x mandatory` + `scrollend` 同步底部导航，导航点击时短暂锁定滚动事件，避免高亮回弹。
 - **分钟对齐刷新**：`delay = 60000 - s * 1000 - ms + 40`，每分钟只在整点后触发一次重绘；`visibilitychange` 时挂起定时器。
-- **手表应用**：Kotlin + Compose for Wear OS（Material 2，稳定版），`ScalingLazyColumn` 负责曲率与缩放，`TimeText` 显示系统时间，页面用 Compose Foundation 的 `HorizontalPager` 左右切换，底边只有四个自绘圆点；列表容器统一封装，右侧附带 `PositionIndicator`。
+- **手表应用**：Kotlin + Compose for Wear OS（Material 2，稳定版），`ScalingLazyColumn` 负责曲率与缩放，`TimeText` 显示系统时间，页面用 Compose Foundation 的 `HorizontalPager` 左右切换，底边只有四个自绘圆点。列表容器统一封装，右侧是自绘的 `ArcScrollIndicator`——贴表盘弧线的常显滚动条，只在绘制阶段读滚动状态。`beyondBoundsPageCount = 1` 预组合相邻页，翻页第一帧就有内容。
 - **手表功耗**：纯黑背景、无循环动画、无秒针；时间与进度由分钟对齐的协程驱动，只在整分钟后刷新一次。
 - **数据通道**：手机用 `Wearable.getDataClient().putDataItem()` 发 `/jielu/data`，手表由 `WearableListenerService` 接收；先查 `getConnectedNodes()`，没有配对节点就明确告诉用户，而不是假装发送成功。
 - **Android 壳**：`shouldInterceptRequest` 把 `https://appassets.androidplatform.net` 的请求映射到 `assets/www`，页面因此拥有安全上下文（`localStorage`、剪贴板 API 都可正常工作），同时完全离线。
@@ -211,8 +213,8 @@ if (course.parity === "even") return week % 2 === 0;
 - 没有云同步与多设备合并，换设备请用"备份与恢复"导出 JSON。
 - **手表同步依赖 Google Play 服务**：手机端用 Wearable Data Layer 推送，国产无 GMS 的手机会提示"缺少 Google Play 服务"；这种情况下请在手表端用"粘贴课表文本"导入。
 - **调课只按日期生效**：把 A 日的课挪到 B 日时，B 日原有的课程会被临时替换，不会自动合并两套课表。
-- 手表端不能新建课程或调课：可以在手表上查看、重置临时调整，完整编辑仍在手机端完成。
-- 手机端已在真机安装验证；手表端 UI 仍以编译、布局检查与 12 个数据层单元测试为准（开发环境没有 Wear 设备）。
+- 手表端可以建课、删课、调休、改学期与作息，但**不能编辑已有的课程字段**（改名、换教室、改周次仍需在手机端做），手表上的编辑以「加一节 / 删一节」为主。
+- 手机端已在真机安装验证；手表端 UI 仍以编译、布局检查与 24 个数据层单元测试为准（开发环境没有 Wear 设备）。
 
 ## 关于作者
 
