@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +39,9 @@ import com.jielu.timetable.wear.data.ScheduleData
 import com.jielu.timetable.wear.data.stateAt
 import com.jielu.timetable.wear.data.weekdayCN
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /* ---------- 此刻 ---------- */
 
@@ -61,7 +66,7 @@ fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
                 hint = "最后一节 ${state.lastEnd} 下课"
             )
             CourseState.Empty, null -> if (showLoading) {
-                LoadingContent()
+                LoadingBlock("正在载入课表")
             } else {
                 MessageContent(
                     title = "还没有课表",
@@ -71,16 +76,6 @@ fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
             }
         }
     }
-}
-
-/** 首帧占位：只有一行字，不画环、不量列表。 */
-@Composable
-private fun LoadingContent() {
-    Text(
-        text = "正在载入课表",
-        style = MaterialTheme.typography.caption2,
-        color = JieluColors.Muted
-    )
 }
 
 @Composable
@@ -200,7 +195,7 @@ private fun MessageContent(title: String, big: String, hint: String) {
 /* ---------- 今日 ---------- */
 
 @Composable
-fun AgendaScreen(data: ScheduleData?, hideFinished: Boolean) {
+fun AgendaScreen(data: ScheduleData?, loading: Boolean, hideFinished: Boolean) {
     val now by rememberNowState()
     var selected by remember { mutableStateOf<Course?>(null) }
     BackHandler(enabled = selected != null) { selected = null }
@@ -237,7 +232,11 @@ fun AgendaScreen(data: ScheduleData?, hideFinished: Boolean) {
                     color = JieluColors.Muted
                 )
                 Text(
-                    text = if (courses.isEmpty()) "没有课" else "${courses.size} 节课",
+                    text = when {
+                        data == null && loading -> "今日"
+                        courses.isEmpty() -> "没有课"
+                        else -> "${courses.size} 节课"
+                    },
                     style = MaterialTheme.typography.title3
                 )
                 if (adjustment != null) {
@@ -251,23 +250,44 @@ fun AgendaScreen(data: ScheduleData?, hideFinished: Boolean) {
                 }
             }
         }
-        items(courses.size) { index ->
-            val course = courses[index]
-            val start = ScheduleData.minutesOf(course.start)
-            val end = ScheduleData.minutesOf(course.end)
-            val isNow = minutes in start until end
-            val isPast = minutes >= end
-            CourseChip(course, isNow, isPast) { selected = course }
-        }
-        if (courses.isEmpty()) {
+        if (data == null) {
             item {
-                Text(
-                    text = if (today.isEmpty()) "今天可以慢一点" else "今天的课都上完了",
-                    style = MaterialTheme.typography.caption2,
-                    color = JieluColors.Muted,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (loading) {
+                        LoadingBlock("正在载入课表")
+                    } else {
+                        Text(
+                            text = "还没有课表",
+                            style = MaterialTheme.typography.caption2,
+                            color = JieluColors.Muted
+                        )
+                    }
+                }
+            }
+        } else {
+            items(courses.size) { index ->
+                val course = courses[index]
+                val start = ScheduleData.minutesOf(course.start)
+                val end = ScheduleData.minutesOf(course.end)
+                val isNow = minutes in start until end
+                val isPast = minutes >= end
+                CourseChip(course, isNow, isPast) { selected = course }
+            }
+            if (courses.isEmpty()) {
+                item {
+                    Text(
+                        text = if (today.isEmpty()) "今天可以慢一点" else "今天的课都上完了",
+                        style = MaterialTheme.typography.caption2,
+                        color = JieluColors.Muted,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -376,7 +396,7 @@ fun CourseDetailScreen(course: Course, onBack: () -> Unit) {
 data class WeekDay(val date: LocalDate, val courses: List<Course>)
 
 @Composable
-fun WeekScreen(data: ScheduleData?) {
+fun WeekScreen(data: ScheduleData?, loading: Boolean) {
     val now by rememberNowState()
     var selected by remember { mutableStateOf<LocalDate?>(null) }
     BackHandler(enabled = selected != null) { selected = null }
@@ -395,13 +415,30 @@ fun WeekScreen(data: ScheduleData?) {
         week % 2 == 1 -> "单周"
         else -> "双周"
     }
-    // 七天只算一次，避免每次重组重复扫描整份课表
-    val days = remember(data, monday) {
-        (0..6).map { index ->
-            val date = monday.plusDays(index.toLong())
-            WeekDay(date, data?.coursesOn(date).orEmpty())
+    // 只有真的翻到这一页才算七天：第一次是后台算，别挡着这一页的入场
+    val days by produceState<List<WeekDay>?>(initialValue = null, data, monday) {
+        value = if (data == null) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.Default) {
+                (0..6).map { index ->
+                    val date = monday.plusDays(index.toLong())
+                    WeekDay(date, data.coursesOn(date))
+                }
+            }
         }
     }
+
+    // 七天也就几毫秒，圆环晚一点再亮，正常看不到闪
+    var ringVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(days) {
+        ringVisible = false
+        if (days == null) {
+            delay(140)
+            ringVisible = true
+        }
+    }
+    val weekDays = days
 
     ScrollColumn(
         state = rememberScalingLazyListState(),
@@ -425,18 +462,52 @@ fun WeekScreen(data: ScheduleData?) {
                 )
             }
         }
-        items(7) { index ->
-            val day = days[index]
-            WeekDayChip(day, day.date == today) { selected = day.date }
-        }
-        item {
-            Text(
-                text = "点一天看当天课表",
-                style = MaterialTheme.typography.caption2,
-                color = JieluColors.Muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+        when {
+            data == null -> item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (loading) {
+                        LoadingBlock("正在载入课表")
+                    } else {
+                        Text(
+                            text = "还没有课表",
+                            style = MaterialTheme.typography.caption2,
+                            color = JieluColors.Muted
+                        )
+                    }
+                }
+            }
+
+            weekDays == null -> item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (ringVisible) LoadingRing() else Spacer(modifier = Modifier.height(22.dp))
+                }
+            }
+
+            else -> {
+                items(7) { index ->
+                    val day = weekDays[index]
+                    WeekDayChip(day, day.date == today) { selected = day.date }
+                }
+                item {
+                    Text(
+                        text = "点一天看当天课表",
+                        style = MaterialTheme.typography.caption2,
+                        color = JieluColors.Muted,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }

@@ -54,6 +54,18 @@ data class ScheduleData(
     val courses: List<Course>,
     val adjustments: List<Adjustment> = emptyList()
 ) {
+    /**
+     * 按星期分好桶、排好序，构造后只建一次。
+     *
+     * 之前 `coursesOn` 每次都把整份课表过滤一遍再排序：今日页一次、本周页 7 次、
+     * 日详情再一次。分桶后每次只碰当天那十来条。`by lazy` 保证没人看本周时
+     * 这份索引根本不会被建出来。
+     */
+    private val byDay: Map<Int, List<Course>> by lazy {
+        courses.groupBy { it.day }
+            .mapValues { (_, items) -> items.sortedBy { minutesOf(it.start) } }
+    }
+
     val termStart: LocalDate
         get() = runCatching { LocalDate.parse(term.start) }.getOrDefault(LocalDate.now())
 
@@ -93,10 +105,8 @@ data class ScheduleData(
         val adjustment = adjustmentOn(date)
         if (adjustment != null && adjustment.type != "swap-in") return emptyList()
         val effective = adjustment?.counterpart ?: date
-        val dow = effective.dayOfWeek.value % 7
-        return courses
-            .filter { it.day == dow && isActive(it, effective) }
-            .sortedBy { minutesOf(it.start) }
+        val bucket = byDay[effective.dayOfWeek.value % 7] ?: return emptyList()
+        return bucket.filter { isActive(it, effective) }
     }
 
     fun nextCourseAfter(minutes: Int, date: LocalDate): Course? =

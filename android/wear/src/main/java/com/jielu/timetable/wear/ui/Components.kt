@@ -1,10 +1,16 @@
 package com.jielu.timetable.wear.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +33,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.ScalingLazyColumn
@@ -96,21 +103,21 @@ fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifie
         // 一屏就能看全（前后都滚不动）时不画指示器
         if (!state.canScrollBackward && !state.canScrollForward) return@Canvas
 
-        // 贴表盘右缘：半径只比表盘半径小 6dp。弧段控制在 52° 左右，
-        // 之前 104° 几乎占了右半圈，看起来又长又鼓。
-        val radius = min(size.width, size.height) / 2f - 6.dp.toPx()
+        // 贴表盘右缘，且**以 3 点钟方向为中心左右对称**（-16° ~ +16°）。
+        // 整段 32°，约表盘高度的四分之一；之前 104° 和 52° 都明显偏长。
+        val radius = min(size.width, size.height) / 2f - 5.dp.toPx()
         if (radius <= 0f) return@Canvas
         val center = Offset(size.width / 2f, size.height / 2f)
-        val arcStart = -20f
-        val arcSweep = 52f
+        val arcStart = -16f
+        val arcSweep = 32f
 
         val scrollable = (total - visible.size).coerceAtLeast(1)
         val progress = (first.toFloat() / scrollable).coerceIn(0f, 1f)
-        val thumbFraction = (visible.size.toFloat() / total).coerceIn(0.22f, 0.5f)
+        val thumbFraction = (visible.size.toFloat() / total).coerceIn(0.28f, 0.5f)
         val thumbSweep = arcSweep * thumbFraction
         val thumbStart = arcStart + (arcSweep - thumbSweep) * progress
         val scrolling = state.isScrollInProgress
-        val trackColor = JieluColors.OnSurface.copy(alpha = if (scrolling) 0.18f else 0.12f)
+        val trackColor = JieluColors.OnSurface.copy(alpha = if (scrolling) 0.16f else 0.10f)
 
         drawArc(
             color = trackColor,
@@ -130,6 +137,73 @@ fun ArcScrollIndicator(state: ScalingLazyListState, modifier: Modifier = Modifie
             size = Size(radius * 2f, radius * 2f),
             style = Stroke(width = if (scrolling) 3.5.dp.toPx() else 3.dp.toPx(), cap = StrokeCap.Round)
         )
+    }
+}
+
+/**
+ * 小号 indeterminate 圆环，M3 for Wear 里 `CircularProgressIndicator` 的样子：
+ * 一圈极淡的轨道加一段跟着转的强调色弧。
+ *
+ * 只在真的等数据时才出现，而且由调用方延迟一小会儿再亮，
+ * 正常几毫秒就算完的页面不会闪一下。
+ */
+@Composable
+fun LoadingRing(
+    modifier: Modifier = Modifier,
+    diameter: Dp = 22.dp,
+    stroke: Dp = 2.5.dp
+) {
+    val transition = rememberInfiniteTransition(label = "ring")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing)),
+        label = "angle"
+    )
+    val trackColor = JieluColors.OnSurface.copy(alpha = 0.12f)
+    val accent = MaterialTheme.colors.primary
+    Canvas(modifier = modifier.size(diameter)) {
+        val width = stroke.toPx()
+        val inset = width / 2f
+        val arcSize = Size(size.width - width, size.height - width)
+        drawArc(
+            color = trackColor,
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = arcSize,
+            style = Stroke(width = width)
+        )
+        // 角度在绘制阶段读取，转起来只重绘这一小块，不牵动整页重组
+        drawArc(
+            color = accent,
+            startAngle = angle,
+            sweepAngle = 80f,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = arcSize,
+            style = Stroke(width = width, cap = StrokeCap.Round)
+        )
+    }
+}
+
+/** 居中的圆环 + 一行说明，用于页面首帧的等待态。 */
+@Composable
+fun LoadingBlock(text: String = "", modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        LoadingRing()
+        if (text.isNotEmpty()) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.caption2,
+                color = JieluColors.Muted
+            )
+        }
     }
 }
 

@@ -51,7 +51,7 @@ fun WearApp() {
     // 画面出来、且没有正在滑动时，再把邻居页预组合上，后续翻页依旧跟手。
     var prefetch by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
-        delay(700)
+        delay(1200)
         while (pagerState.isScrollInProgress) delay(120)
         prefetch = 1
     }
@@ -72,8 +72,8 @@ fun WearApp() {
                 ) { page ->
                     when (page) {
                         0 -> NowScreen(data, loading, settings.showRing)
-                        1 -> AgendaScreen(data, settings.hideFinished)
-                        2 -> WeekScreen(data)
+                        1 -> AgendaScreen(data, loading, settings.hideFinished)
+                        2 -> WeekScreen(data, loading)
                         else -> SettingsScreen(data)
                     }
                 }
