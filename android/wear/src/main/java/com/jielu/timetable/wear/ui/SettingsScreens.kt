@@ -66,7 +66,7 @@ private sealed interface SettingsRoute {
     data class PeriodEdit(val index: Int) : SettingsRoute
     data object Courses : SettingsRoute
     data class CourseDay(val date: LocalDate) : SettingsRoute
-    data object CourseNew : SettingsRoute
+    data class CourseNew(val fromDay: LocalDate? = null) : SettingsRoute
     data object Import : SettingsRoute
 }
 
@@ -74,7 +74,7 @@ private fun parentOf(route: SettingsRoute): SettingsRoute = when (route) {
     SettingsRoute.AdjustNew -> SettingsRoute.AdjustList
     is SettingsRoute.PeriodEdit -> SettingsRoute.Periods
     is SettingsRoute.CourseDay -> SettingsRoute.Courses
-    SettingsRoute.CourseNew -> SettingsRoute.Courses
+    is SettingsRoute.CourseNew -> route.fromDay?.let { SettingsRoute.CourseDay(it) } ?: SettingsRoute.Courses
     SettingsRoute.Import -> SettingsRoute.Root
     else -> SettingsRoute.Root
 }
@@ -128,7 +128,7 @@ fun SettingsScreen(data: ScheduleData?) {
             data = data,
             notice = notice,
             onPick = { route = SettingsRoute.CourseDay(it); notice = "" },
-            onNew = { route = SettingsRoute.CourseNew; notice = "" },
+            onNew = { route = SettingsRoute.CourseNew(); notice = "" },
             onBack = { route = SettingsRoute.Root }
         )
         is SettingsRoute.CourseDay -> CourseDayScreen(
@@ -136,16 +136,21 @@ fun SettingsScreen(data: ScheduleData?) {
             date = current.date,
             notice = notice,
             onNotice = { notice = it },
-            onNew = { route = SettingsRoute.CourseNew },
+            onNew = { date -> route = SettingsRoute.CourseNew(date) },
             onBack = { route = SettingsRoute.Courses }
         )
-        SettingsRoute.CourseNew -> CourseNewScreen(
+        is SettingsRoute.CourseNew -> CourseNewScreen(
             data = data,
-            onSaved = {
-                route = SettingsRoute.Courses
-                notice = it
+            presetDay = current.fromDay?.let(::weekdayIndex),
+            onSaved = { message, day ->
+                // 存完就落在那一天的列表上，方便接着加下一节
+                route = SettingsRoute.CourseDay(weekDateOf(day))
+                notice = message
             },
-            onBack = { route = SettingsRoute.Courses }
+            onBack = {
+                route = current.fromDay?.let { SettingsRoute.CourseDay(it) }
+                    ?: SettingsRoute.Courses
+            }
         )
         SettingsRoute.Import -> ImportScreen(
             onBack = { route = SettingsRoute.Root },
@@ -1113,7 +1118,7 @@ private fun CourseDayScreen(
     date: LocalDate,
     notice: String,
     onNotice: (String) -> Unit,
-    onNew: () -> Unit,
+    onNew: (LocalDate) -> Unit,
     onBack: () -> Unit
 ) {
     val courses = remember(data, date) { data?.coursesOn(date).orEmpty() }
@@ -1201,7 +1206,7 @@ private fun CourseDayScreen(
             Chip(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("在这天加一节课") },
-                onClick = onNew
+                onClick = { onNew(date) }
             )
         }
         item { BackChip("返回课程列表", onBack) }
@@ -1211,17 +1216,21 @@ private fun CourseDayScreen(
 @Composable
 private fun CourseNewScreen(
     data: ScheduleData?,
-    onSaved: (String) -> Unit,
+    presetDay: Int?,
+    onSaved: (String, Int) -> Unit,
     onBack: () -> Unit
 ) {
     val periods = data?.periods?.takeIf { it.isNotEmpty() } ?: LocalOverrides.DEFAULT_PERIODS
-    var step by remember { mutableStateOf(0) }
-    var day by remember { mutableStateOf(1) }
+    // 从某一天进来时直接跳到选节次，少一步
+    var step by remember { mutableStateOf(if (presetDay == null) 0 else 1) }
+    var day by remember { mutableStateOf(presetDay ?: 1) }
     var periodIndex by remember { mutableStateOf(0) }
     var name by remember { mutableStateOf("") }
     var room by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
-    BackHandler(enabled = step > 0) { step -= 1 }
+    BackHandler(enabled = step > 0) {
+        if (step == 1 && presetDay != null) onBack() else step -= 1
+    }
 
     when (step) {
         0 -> ScrollColumn(
@@ -1268,7 +1277,7 @@ private fun CourseNewScreen(
                 ) {
                     Text(text = weekdayLabel(day), style = MaterialTheme.typography.title3)
                     Text(
-                        text = "第 2 步 · 选节次",
+                        text = if (presetDay == null) "第 2 步 · 选节次" else "选节次",
                         style = MaterialTheme.typography.caption2,
                         color = JieluColors.Muted
                     )
@@ -1287,7 +1296,7 @@ private fun CourseNewScreen(
                     colors = ChipDefaults.secondaryChipColors()
                 )
             }
-            item { BackChip("返回", { step = 0 }) }
+            item { BackChip("返回") { if (presetDay == null) step = 0 else onBack() } }
         }
 
         else -> ScrollColumn(
@@ -1367,7 +1376,7 @@ private fun CourseNewScreen(
                         if (name.isBlank()) {
                             error = "先给课程起个名字"
                         } else if (ScheduleStore.addCourse(day, name, period.start, period.end, room)) {
-                            onSaved("已添加 ${name.trim()}")
+                            onSaved("已添加 ${name.trim()}", day)
                         } else {
                             error = "保存失败，检查一下时间"
                         }
@@ -1481,6 +1490,17 @@ private fun BackChip(text: String, onBack: () -> Unit) {
 }
 
 private fun monthDay(date: LocalDate): String = "${date.monthValue}/${date.dayOfMonth}"
+
+private fun weekdayIndex(date: LocalDate): Int {
+    val value = date.dayOfWeek.value
+    return if (value == 7) 0 else value
+}
+
+private fun weekDateOf(day: Int): LocalDate {
+    val today = LocalDate.now()
+    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    return monday.plusDays(((day + 6) % 7).toLong())
+}
 
 private fun weekdayLabel(day: Int): String = when (day) {
     0 -> "周日"
