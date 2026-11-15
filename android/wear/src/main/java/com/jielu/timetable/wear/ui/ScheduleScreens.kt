@@ -452,10 +452,10 @@ fun WeekScreen(data: ScheduleData?, loading: Boolean) {
             ) {
                 Text(text = "本周", style = MaterialTheme.typography.title3)
                 Text(
-                    text = if (data == null) {
-                        "还没有课表"
-                    } else {
-                        "第 $week 周${if (parity.isNotEmpty()) " · $parity" else ""}"
+                    text = when {
+                        data == null && loading -> "正在载入"
+                        data == null -> "还没有课表"
+                        else -> "第 $week 周${if (parity.isNotEmpty()) " · $parity" else ""}"
                     },
                     style = MaterialTheme.typography.caption2,
                     color = JieluColors.Muted
@@ -470,15 +470,8 @@ fun WeekScreen(data: ScheduleData?, loading: Boolean) {
                         .padding(top = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (loading) {
-                        LoadingBlock("正在载入课表")
-                    } else {
-                        Text(
-                            text = "还没有课表",
-                            style = MaterialTheme.typography.caption2,
-                            color = JieluColors.Muted
-                        )
-                    }
+                    // 文案已经在标题里说过了，这里只留一个环
+                    if (loading) LoadingRing()
                 }
             }
 
