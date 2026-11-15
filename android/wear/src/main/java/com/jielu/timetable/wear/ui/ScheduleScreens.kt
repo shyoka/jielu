@@ -1,6 +1,12 @@
 package com.jielu.timetable.wear.ui
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +33,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.min
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
@@ -56,23 +63,49 @@ fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
     // 首次加载时数据还没到，别先把「还没有课表」亮出来 —— 那是另一种说法
     val showLoading = loading && data == null
 
+    // 动画只认「阶段」。直接拿 state 当 key 的话，上课中每分钟的剩余时间一变
+    // 就会判成新内容，界面跟着闪一次。
+    val phase = when (state) {
+        is CourseState.Active -> "active-${state.course.id}"
+        is CourseState.Upcoming -> "upcoming-${state.course.id}"
+        is CourseState.Done -> "done"
+        else -> if (showLoading) "loading" else "empty"
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        when (state) {
-            is CourseState.Active -> ActiveContent(state, showRing)
-            is CourseState.Upcoming -> UpcomingContent(state)
-            is CourseState.Done -> MessageContent(
-                title = "今天的课结束啦",
-                big = state.lastEnd,
-                hint = "最后一节 ${state.lastEnd} 下课"
-            )
-            CourseState.Empty, null -> if (showLoading) {
-                LoadingBlock("正在载入课表")
-            } else {
-                MessageContent(
-                    title = "还没有课表",
-                    big = "—",
-                    hint = "设置页可以自己建课，也能粘贴课表或从手机同步"
+        // 上课中 / 下一节 / 已结束之间切换时，新内容淡入并轻微放大，
+        // 旧内容快速淡出 —— M3E 的 fade through，比硬切换自然。
+        AnimatedContent(
+            targetState = phase,
+            transitionSpec = {
+                (
+                    fadeIn(tween(240)) + scaleIn(
+                        initialScale = 0.92f,
+                        animationSpec = spring(dampingRatio = 0.8f, stiffness = 380f)
+                    )
+                    ).togetherWith(fadeOut(tween(120)))
+            },
+            contentAlignment = Alignment.Center,
+            label = "now-state"
+        ) { _ ->
+            // 内容始终按最新的 state 渲染；targetState 只负责决定「要不要播动画」
+            when (state) {
+                is CourseState.Active -> ActiveContent(state, showRing)
+                is CourseState.Upcoming -> UpcomingContent(state)
+                is CourseState.Done -> MessageContent(
+                    title = "今天的课结束啦",
+                    big = state.lastEnd,
+                    hint = "最后一节 ${state.lastEnd} 下课"
                 )
+                CourseState.Empty, null -> if (showLoading) {
+                    LoadingBlock("正在载入课表")
+                } else {
+                    MessageContent(
+                        title = "还没有课表",
+                        big = "—",
+                        hint = "设置页可以自己建课，也能粘贴课表或从手机同步"
+                    )
+                }
             }
         }
     }
@@ -85,13 +118,21 @@ private fun ActiveContent(state: CourseState.Active, showRing: Boolean) {
         if (showRing) Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = 6.dp.toPx()
             val inset = stroke / 2 + 3.dp.toPx()
-            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+            // 矩形屏（或可用区被 TimeText 挤成非正方形）时，按宽高各减一次 inset
+            // 画出来就是椭圆。这里取短边当直径并居中，任何屏幕比例下都是正圆。
+            val diameter = min(size.width, size.height) - inset * 2
+            if (diameter <= 0f) return@Canvas
+            val arcTopLeft = Offset(
+                (size.width - diameter) / 2f,
+                (size.height - diameter) / 2f
+            )
+            val arcSize = Size(diameter, diameter)
             drawArc(
                 color = JieluColors.SurfaceHigh,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
-                topLeft = Offset(inset, inset),
+                topLeft = arcTopLeft,
                 size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
@@ -100,7 +141,7 @@ private fun ActiveContent(state: CourseState.Active, showRing: Boolean) {
                 startAngle = -90f,
                 sweepAngle = 360f * state.progress.coerceIn(0f, 1f),
                 useCenter = false,
-                topLeft = Offset(inset, inset),
+                topLeft = arcTopLeft,
                 size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
@@ -195,16 +236,13 @@ private fun MessageContent(title: String, big: String, hint: String) {
 /* ---------- 今日 ---------- */
 
 @Composable
-fun AgendaScreen(data: ScheduleData?, loading: Boolean, hideFinished: Boolean) {
+fun AgendaScreen(
+    data: ScheduleData?,
+    loading: Boolean,
+    hideFinished: Boolean,
+    onPickCourse: (Course) -> Unit
+) {
     val now by rememberNowState()
-    var selected by remember { mutableStateOf<Course?>(null) }
-    BackHandler(enabled = selected != null) { selected = null }
-
-    val current = selected
-    if (current != null) {
-        CourseDetailScreen(current) { selected = null }
-        return
-    }
 
     val date = now.toLocalDate()
     val minutes = now.hour * 60 + now.minute
@@ -276,7 +314,7 @@ fun AgendaScreen(data: ScheduleData?, loading: Boolean, hideFinished: Boolean) {
                 val end = ScheduleData.minutesOf(course.end)
                 val isNow = minutes in start until end
                 val isPast = minutes >= end
-                CourseChip(course, isNow, isPast) { selected = course }
+                CourseChip(course, isNow, isPast) { onPickCourse(course) }
             }
             if (courses.isEmpty()) {
                 item {
@@ -396,16 +434,12 @@ fun CourseDetailScreen(course: Course, onBack: () -> Unit) {
 data class WeekDay(val date: LocalDate, val courses: List<Course>)
 
 @Composable
-fun WeekScreen(data: ScheduleData?, loading: Boolean) {
+fun WeekScreen(
+    data: ScheduleData?,
+    loading: Boolean,
+    onPickDay: (LocalDate) -> Unit
+) {
     val now by rememberNowState()
-    var selected by remember { mutableStateOf<LocalDate?>(null) }
-    BackHandler(enabled = selected != null) { selected = null }
-
-    val picked = selected
-    if (picked != null) {
-        DayScreen(data, picked) { selected = null }
-        return
-    }
 
     val today = now.toLocalDate()
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -489,7 +523,7 @@ fun WeekScreen(data: ScheduleData?, loading: Boolean) {
             else -> {
                 items(7) { index ->
                     val day = weekDays[index]
-                    WeekDayChip(day, day.date == today) { selected = day.date }
+                    WeekDayChip(day, day.date == today) { onPickDay(day.date) }
                 }
                 item {
                     Text(
@@ -539,16 +573,13 @@ private fun WeekDayChip(day: WeekDay, isToday: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun DayScreen(data: ScheduleData?, date: LocalDate, onBack: () -> Unit) {
+fun DayScreen(
+    data: ScheduleData?,
+    date: LocalDate,
+    onPickCourse: (Course) -> Unit,
+    onBack: () -> Unit
+) {
     val now by rememberNowState()
-    var picked by remember { mutableStateOf<Course?>(null) }
-    BackHandler(enabled = picked != null) { picked = null }
-
-    val current = picked
-    if (current != null) {
-        CourseDetailScreen(current) { picked = null }
-        return
-    }
 
     val courses = remember(data, date) { data?.coursesOn(date).orEmpty() }
     val adjustment = data?.adjustmentOn(date)
@@ -599,7 +630,7 @@ fun DayScreen(data: ScheduleData?, date: LocalDate, onBack: () -> Unit) {
             val end = ScheduleData.minutesOf(course.end)
             val isNow = date == today && minutes in start until end
             val isPast = date == today && minutes >= end
-            CourseChip(course, isNow, isPast) { picked = course }
+            CourseChip(course, isNow, isPast) { onPickCourse(course) }
         }
         if (courses.isEmpty()) {
             item {

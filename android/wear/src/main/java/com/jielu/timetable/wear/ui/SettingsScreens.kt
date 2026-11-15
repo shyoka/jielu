@@ -59,7 +59,7 @@ import com.jielu.timetable.wear.data.WearPalettes
 import com.jielu.timetable.wear.data.weekdayCN
 import java.time.LocalDate
 
-private sealed interface SettingsRoute {
+sealed interface SettingsRoute {
     data object Root : SettingsRoute
     data object AdjustList : SettingsRoute
     data object AdjustNew : SettingsRoute
@@ -72,93 +72,97 @@ private sealed interface SettingsRoute {
     data object Import : SettingsRoute
 }
 
-private fun parentOf(route: SettingsRoute): SettingsRoute = when (route) {
-    SettingsRoute.AdjustNew -> SettingsRoute.AdjustList
-    is SettingsRoute.PeriodEdit -> SettingsRoute.Periods
-    is SettingsRoute.CourseDay -> SettingsRoute.Courses
-    is SettingsRoute.CourseNew -> route.fromDay?.let { SettingsRoute.CourseDay(it) } ?: SettingsRoute.Courses
-    SettingsRoute.Import -> SettingsRoute.Root
-    else -> SettingsRoute.Root
+@Composable
+fun SettingsScreen(
+    data: ScheduleData?,
+    notice: String,
+    onOpen: (SettingsRoute) -> Unit
+) {
+    SettingsHome(data = data, notice = notice, onOpen = onOpen)
 }
 
+/**
+ * 第二级及以下的设置页。
+ *
+ * 这些页面原先和第一级挤在同一个 Composable 里，于是 Pager 会把它们当成
+ * 普通的一页 —— 左右一滑就滑去「此刻」了。现在它们由 [SettingsStackLayer]
+ * 单独铺在 Pager 上层，Pager 的手势在栈非空时直接关掉。
+ *
+ * [onPush] 进下一级，[onReplace] 原地换掉当前级（保存后落到列表），
+ * [onBack] 退一级，[onExit] 一路退回第一级。
+ */
 @Composable
-fun SettingsScreen(data: ScheduleData?) {
-    var route by remember { mutableStateOf<SettingsRoute>(SettingsRoute.Root) }
-    var notice by remember { mutableStateOf("") }
-
-    BackHandler(enabled = route != SettingsRoute.Root) {
-        route = parentOf(route)
-        notice = ""
-    }
-
-    when (val current = route) {
-        SettingsRoute.Root -> SettingsHome(
-            data = data,
-            notice = notice,
-            onOpen = { route = it; notice = "" }
-        )
+fun SettingsDetailScreen(
+    route: SettingsRoute,
+    data: ScheduleData?,
+    notice: String,
+    onNotice: (String) -> Unit,
+    onPush: (SettingsRoute) -> Unit,
+    onReplace: (SettingsRoute) -> Unit,
+    onBack: () -> Unit,
+    onExit: () -> Unit
+) {
+    when (route) {
+        SettingsRoute.Root -> Unit
         SettingsRoute.AdjustList -> AdjustmentListScreen(
             data = data,
             notice = notice,
-            onNew = { route = SettingsRoute.AdjustNew; notice = "" },
-            onNotice = { notice = it },
-            onBack = { route = SettingsRoute.Root }
+            onNew = { onPush(SettingsRoute.AdjustNew) },
+            onNotice = onNotice,
+            onBack = onExit
         )
         SettingsRoute.AdjustNew -> AdjustmentWizard(
             onSaved = {
-                route = SettingsRoute.AdjustList
-                notice = it
+                onNotice(it)
+                onBack()
             },
-            onBack = { route = SettingsRoute.AdjustList }
+            onBack = onBack
         )
         SettingsRoute.Term -> TermScreen(
             data = data,
-            onBack = { route = SettingsRoute.Root }
+            onBack = onExit
         )
         SettingsRoute.Periods -> PeriodsScreen(
             data = data,
-            onEdit = { route = SettingsRoute.PeriodEdit(it) },
-            onBack = { route = SettingsRoute.Root }
+            onEdit = { onPush(SettingsRoute.PeriodEdit(it)) },
+            onBack = onExit
         )
         is SettingsRoute.PeriodEdit -> PeriodEditScreen(
             data = data,
-            index = current.index,
-            onDone = { route = SettingsRoute.Periods },
-            onBack = { route = SettingsRoute.Periods }
+            index = route.index,
+            onDone = onBack,
+            onBack = onBack
         )
         SettingsRoute.Courses -> CoursesScreen(
             data = data,
             notice = notice,
-            onPick = { route = SettingsRoute.CourseDay(it); notice = "" },
-            onNew = { route = SettingsRoute.CourseNew(); notice = "" },
-            onBack = { route = SettingsRoute.Root }
+            onPick = { onPush(SettingsRoute.CourseDay(it)) },
+            onNew = { onPush(SettingsRoute.CourseNew()) },
+            onBack = onExit
         )
         is SettingsRoute.CourseDay -> CourseDayScreen(
             data = data,
-            date = current.date,
+            date = route.date,
             notice = notice,
-            onNotice = { notice = it },
-            onNew = { date -> route = SettingsRoute.CourseNew(date) },
-            onBack = { route = SettingsRoute.Courses }
+            onNotice = onNotice,
+            onNew = { date -> onPush(SettingsRoute.CourseNew(date)) },
+            onBack = onBack
         )
         is SettingsRoute.CourseNew -> CourseNewScreen(
             data = data,
-            presetDay = current.fromDay?.let(::weekdayIndex),
+            presetDay = route.fromDay?.let(::weekdayIndex),
             onSaved = { message, day ->
                 // 存完就落在那一天的列表上，方便接着加下一节
-                route = SettingsRoute.CourseDay(weekDateOf(day))
-                notice = message
+                onNotice(message)
+                onReplace(SettingsRoute.CourseDay(weekDateOf(day)))
             },
-            onBack = {
-                route = current.fromDay?.let { SettingsRoute.CourseDay(it) }
-                    ?: SettingsRoute.Courses
-            }
+            onBack = onBack
         )
         SettingsRoute.Import -> ImportScreen(
-            onBack = { route = SettingsRoute.Root },
+            onBack = onExit,
             onImported = {
-                route = SettingsRoute.Root
-                notice = it
+                onNotice(it)
+                onExit()
             }
         )
     }
