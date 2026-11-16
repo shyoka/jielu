@@ -4516,3 +4516,73 @@ a.maker-person:hover .maker-name {
   height: 16px;
   stroke: color-mix(in oklab, var(--on-primary-container) 52%, transparent);
 }
+
+/* ---------- 调试模式 ---------- */
+
+.settings-card--debug {
+  margin-top: 8px;
+  animation: debug-card-in 0.26s var(--ease-out) both;
+}
+
+@keyframes debug-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.demo-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(5px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s var(--ease-out);
+}
+
+.demo-loading.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.demo-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--on-surface-variant);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.demo-spinner {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2.6px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-top-color: var(--primary);
+  animation: demo-spin 0.9s linear infinite;
+}
+
+@keyframes demo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-card--debug {
+    animation: none;
+  }
+  .demo-spinner {
+    animation-duration: 2.4s;
+  }
+}

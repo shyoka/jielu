@@ -70,15 +70,19 @@ sealed interface SettingsRoute {
     data class CourseDay(val date: LocalDate) : SettingsRoute
     data class CourseNew(val fromDay: LocalDate? = null) : SettingsRoute
     data object Import : SettingsRoute
+    data object Debug : SettingsRoute
+    data object DebugOverlay : SettingsRoute
+    data object DebugScroll : SettingsRoute
 }
 
 @Composable
 fun SettingsScreen(
     data: ScheduleData?,
     notice: String,
-    onOpen: (SettingsRoute) -> Unit
+    onOpen: (SettingsRoute) -> Unit,
+    onNotice: (String) -> Unit
 ) {
-    SettingsHome(data = data, notice = notice, onOpen = onOpen)
+    SettingsHome(data = data, notice = notice, onOpen = onOpen, onNotice = onNotice)
 }
 
 /**
@@ -165,6 +169,12 @@ fun SettingsDetailScreen(
                 onExit()
             }
         )
+        SettingsRoute.Debug -> DebugLabScreen(
+            onPush = onPush,
+            onBack = onBack
+        )
+        SettingsRoute.DebugOverlay -> DebugOverlayScreen(onBack = onBack)
+        SettingsRoute.DebugScroll -> DebugScrollScreen(onBack = onBack)
     }
 }
 
@@ -174,7 +184,8 @@ fun SettingsDetailScreen(
 private fun SettingsHome(
     data: ScheduleData?,
     notice: String,
-    onOpen: (SettingsRoute) -> Unit
+    onOpen: (SettingsRoute) -> Unit,
+    onNotice: (String) -> Unit
 ) {
     val context = LocalContext.current
     val syncedAt by ScheduleStore.syncedAt.collectAsState()
@@ -283,6 +294,34 @@ private fun SettingsHome(
             )
         }
 
+        item { SectionLabel("调试") }
+        item {
+            ToggleChip(
+                modifier = Modifier.fillMaxWidth(),
+                checked = settings.debug,
+                onCheckedChange = { SettingsStore.setDebug(it) },
+                label = { Text("调试模式") },
+                secondaryLabel = {
+                    Text(if (settings.debug) "动画实验室已开启" else "开启后可快速预览动画")
+                },
+                toggleControl = {
+                    Icon(
+                        imageVector = ToggleChipDefaults.switchIcon(checked = settings.debug),
+                        contentDescription = null
+                    )
+                }
+            )
+        }
+        if (settings.debug) {
+            item {
+                NavChip(
+                    title = "动画实验室",
+                    detail = "进度环 · 加载 · 覆盖层 · 滚动条",
+                    onClick = { onOpen(SettingsRoute.Debug) }
+                )
+            }
+        }
+
         item { SectionLabel("数据（手机同步是可选的）") }
 
         if (notice.isNotBlank()) {
@@ -305,7 +344,7 @@ private fun SettingsHome(
                     secondaryLabel = { Text("回到手机推送或导入的原样") },
                     onClick = {
                         ScheduleStore.resetLocalEdits()
-                        onOpen(SettingsRoute.Root)
+                        onNotice("已回到推送或导入的原样")
                     },
                     colors = ChipDefaults.secondaryChipColors()
                 )
@@ -327,7 +366,7 @@ private fun SettingsHome(
                 onClick = {
                     ScheduleStore.clear()
                     ScheduleStore.ensureSample(context)
-                    onOpen(SettingsRoute.Root)
+                    onNotice("已重新载入示例课表")
                 },
                 colors = ChipDefaults.secondaryChipColors()
             )

@@ -61,6 +61,7 @@
       { classReminder: true, silentCampus: false, dailyBrief: true },
       initialPrefs.toggles || {}
     ),
+    debug: Boolean(initialPrefs.debug),
     selectedDate: J.atMidnight(nowAtLoad),
     viewYear: nowAtLoad.getFullYear(),
     viewMonth: nowAtLoad.getMonth(),
@@ -75,6 +76,9 @@
   let lastFocusedElement = null;
   let sheetOpen = false;
   let navScrollLockUntil = 0;
+  let lastHeroKey = "";
+  let pageDemoTimer = null;
+  let loadingDemoEl = null;
 
   const PHONE_DESIGN_WIDTH = 384;
   const PHONE_DESIGN_HEIGHT = 830;
@@ -110,7 +114,8 @@
         JSON.stringify({
           theme: state.theme,
           palette: state.palette,
-          toggles: state.toggles
+          toggles: state.toggles,
+          debug: state.debug
         })
       );
     } catch (error) {}
@@ -271,7 +276,7 @@
     license: "MIT",
     // 手表安装包与手机包放在同一发布页，latest 永远指向最新一版
     wearRelease: "https://github.com/shyoka/jielu/releases/latest",
-    version: "1.6.0"
+    version: "1.6.1"
   };
 
   function openExternal(url) {
@@ -433,6 +438,14 @@
     heroSlot.innerHTML =
       buildAdjustBanner(J.getAdjustmentForDate(date)) +
       buildHero(courses, date, isToday, now);
+
+    // 进度环只在「换了一节课 / 换了一天」时从零转起，分钟级的重绘不打扰它
+    const heroCourse = $(".hero[data-course-id]", heroSlot);
+    const heroKey = heroCourse ? heroCourse.dataset.courseId : "";
+    if (heroKey !== lastHeroKey) {
+      lastHeroKey = heroKey;
+      animateHeroRing();
+    }
 
     if (courses.length) {
       todayListSlot.innerHTML = `
@@ -849,6 +862,19 @@
         button.setAttribute("aria-checked", String(Boolean(state.toggles[key])));
       }
     });
+
+    const debugToggle = $("[data-debug-toggle]");
+    if (debugToggle) {
+      debugToggle.setAttribute("aria-checked", String(state.debug));
+    }
+    const debugCard = $("#debugCard");
+    if (debugCard) {
+      debugCard.hidden = !state.debug;
+    }
+    const debugHint = $("#debugHint");
+    if (debugHint) {
+      debugHint.textContent = state.debug ? "动画实验室已展开" : "开启后可快速预览动画";
+    }
   }
 
   /* ---------- 选择日期 / 页面 ---------- */
@@ -1771,6 +1797,122 @@
     }, 2200);
   }
 
+  /* ---------- 调试模式 ---------- */
+
+  function toggleDebug() {
+    state.debug = !state.debug;
+    savePrefs();
+    renderSettingsDynamic();
+    showSnackbar(state.debug ? "调试模式已开启 · 动画实验室在下面" : "调试模式已关闭");
+  }
+
+  function runDebugAction(action) {
+    if (action === "sheet") {
+      openDebugSheet();
+      return;
+    }
+    if (action === "loading") {
+      playLoadingDemo();
+      return;
+    }
+    if (action === "pages") {
+      playPageDemo();
+      return;
+    }
+    if (action === "ring") {
+      playRingDemo();
+      return;
+    }
+    if (action === "snackbar") {
+      showSnackbar("一条会自己消失的提示");
+    }
+  }
+
+  function openDebugSheet() {
+    openSheet(`
+      <div class="sheet-kicker-row">
+        <span class="sheet-kicker">调试 · 弹窗</span>
+        <button class="sheet-close" type="button" data-close-sheet aria-label="关闭">${icon("x")}</button>
+      </div>
+      <h2 class="sheet-title" id="sheetTitle">弹窗动画</h2>
+      <p class="sheet-subline">从底部滑入 · 遮罩同步淡入</p>
+
+      <p class="form-hint">这张弹窗只用来检查动画：滑入的弹簧、遮罩的透明度、收起时的回落。点右上角、遮罩或下面的按钮都能关上；再点一次会重新入场。</p>
+
+      <div class="sheet-actions">
+        <button class="btn btn-tonal" type="button" data-close-sheet>收起弹窗</button>
+        <button class="btn btn-primary" type="button" data-reopen-sheet>再来一次</button>
+      </div>
+    `);
+  }
+
+  function playLoadingDemo() {
+    if (loadingDemoEl) return;
+    const el = document.createElement("div");
+    el.className = "demo-loading";
+    el.setAttribute("role", "status");
+    el.innerHTML = `
+      <div class="demo-loading-card">
+        <span class="demo-spinner" aria-hidden="true"></span>
+        <p>正在加载…</p>
+      </div>`;
+    app.appendChild(el);
+    loadingDemoEl = el;
+    window.requestAnimationFrame(() => el.classList.add("is-visible"));
+    window.setTimeout(() => {
+      el.classList.remove("is-visible");
+      window.setTimeout(() => {
+        el.remove();
+        loadingDemoEl = null;
+      }, 320);
+    }, 2200);
+  }
+
+  function playPageDemo() {
+    window.clearInterval(pageDemoTimer);
+    const start = state.activePage;
+    // 从当前页依次走到下一页，最后回到出发的地方
+    const order = [(start + 1) % 3, (start + 2) % 3, start];
+    let index = 0;
+    goToPage(order[index]);
+    pageDemoTimer = window.setInterval(() => {
+      index += 1;
+      if (index >= order.length) {
+        window.clearInterval(pageDemoTimer);
+        pageDemoTimer = null;
+        return;
+      }
+      goToPage(order[index]);
+    }, 1150);
+  }
+
+  function playRingDemo() {
+    goToPage(0);
+    window.setTimeout(() => animateHeroRing(true), 620);
+  }
+
+  /**
+   * 让 hero 上的进度环从零转起来。
+   * 新元素默认就是终值，先拿 dasharray（整圈）当起点，强制一帧后再过渡回去。
+   */
+  function animateHeroRing(force) {
+    if (prefersReducedMotion) return;
+    const ring = $(".ring-value", heroSlot);
+    if (!ring) return;
+    const target = ring.style.strokeDashoffset;
+    const full = ring.style.strokeDasharray;
+    if (!target || !full) return;
+    if (!force && ring.dataset.played === "1") return;
+    ring.dataset.played = "1";
+    ring.style.transition = "none";
+    ring.style.strokeDashoffset = full;
+    void ring.getBoundingClientRect();
+    ring.style.transition = "stroke-dashoffset 0.95s cubic-bezier(0.05, 0.7, 0.1, 1)";
+    window.requestAnimationFrame(() => {
+      ring.style.strokeDashoffset = target;
+    });
+  }
+
   /* ---------- 事件绑定 ---------- */
 
   function bindEvents() {
@@ -1888,6 +2030,15 @@
     });
 
     pageSettings.addEventListener("click", (event) => {
+      if (event.target.closest("[data-debug-toggle]")) {
+        toggleDebug();
+        return;
+      }
+      const debugAction = event.target.closest("[data-debug-action]");
+      if (debugAction) {
+        runDebugAction(debugAction.dataset.debugAction);
+        return;
+      }
       if (event.target.closest("[data-manage-courses]")) {
         openCourseManager();
         return;
@@ -2010,6 +2161,12 @@
     sheetBody.addEventListener("click", (event) => {
       if (event.target.closest("[data-close-sheet]")) {
         closeSheet();
+        return;
+      }
+
+      if (event.target.closest("[data-reopen-sheet]")) {
+        closeSheet();
+        window.setTimeout(openDebugSheet, 420);
         return;
       }
 

@@ -1,13 +1,14 @@
 package com.jielu.timetable.wear.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,17 +24,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlin.math.min
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
@@ -52,8 +50,16 @@ import kotlinx.coroutines.withContext
 
 /* ---------- 此刻 ---------- */
 
+/** M3 Expressive 的「强调减速」：起手快、收尾稳，用来转圆环正合适。 */
+private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
 @Composable
-fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
+fun NowScreen(
+    data: ScheduleData?,
+    loading: Boolean,
+    showRing: Boolean,
+    visible: Boolean = true
+) {
     val now by rememberNowState()
     val date = now.toLocalDate()
     val minutes = now.hour * 60 + now.minute
@@ -90,7 +96,7 @@ fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
         ) { _ ->
             // 内容始终按最新的 state 渲染；targetState 只负责决定「要不要播动画」
             when (state) {
-                is CourseState.Active -> ActiveContent(state, showRing)
+                is CourseState.Active -> ActiveContent(state, showRing, visible)
                 is CourseState.Upcoming -> UpcomingContent(state)
                 is CourseState.Done -> MessageContent(
                     title = "今天的课结束啦",
@@ -112,38 +118,28 @@ fun NowScreen(data: ScheduleData?, loading: Boolean, showRing: Boolean) {
 }
 
 @Composable
-private fun ActiveContent(state: CourseState.Active, showRing: Boolean) {
+private fun ActiveContent(state: CourseState.Active, showRing: Boolean, visible: Boolean) {
     val color = JieluColors.course(state.course.tone)
+    val target by rememberUpdatedState(state.progress.coerceIn(0f, 1f))
+    val ring = remember { Animatable(0f) }
+
+    // 每次「进入这一页」都从 0 转到当前进度；转完以后每分钟的微调只做小幅补间，
+    // 不重播。visible 是 Pager 停稳后当前页的判断，滑走再回来会重新来一遍。
+    LaunchedEffect(state.course.id, visible, showRing) {
+        if (!visible || !showRing) return@LaunchedEffect
+        ring.snapTo(0f)
+        ring.animateTo(target, tween(durationMillis = 1150, easing = EmphasizedDecelerate))
+        snapshotFlow { target }.collect { value ->
+            ring.animateTo(value, tween(durationMillis = 520, easing = EmphasizedDecelerate))
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        if (showRing) Canvas(modifier = Modifier.fillMaxSize()) {
-            val stroke = 6.dp.toPx()
-            val inset = stroke / 2 + 3.dp.toPx()
-            // 矩形屏（或可用区被 TimeText 挤成非正方形）时，按宽高各减一次 inset
-            // 画出来就是椭圆。这里取短边当直径并居中，任何屏幕比例下都是正圆。
-            val diameter = min(size.width, size.height) - inset * 2
-            if (diameter <= 0f) return@Canvas
-            val arcTopLeft = Offset(
-                (size.width - diameter) / 2f,
-                (size.height - diameter) / 2f
-            )
-            val arcSize = Size(diameter, diameter)
-            drawArc(
-                color = JieluColors.SurfaceHigh,
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = arcTopLeft,
-                size = arcSize,
-                style = Stroke(width = stroke, cap = StrokeCap.Round)
-            )
-            drawArc(
+        if (showRing) {
+            ProgressRing(
+                progress = { ring.value },
                 color = color,
-                startAngle = -90f,
-                sweepAngle = 360f * state.progress.coerceIn(0f, 1f),
-                useCenter = false,
-                topLeft = arcTopLeft,
-                size = arcSize,
-                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                modifier = Modifier.fillMaxSize()
             )
         }
 

@@ -25,11 +25,12 @@ object WearPalettes {
     fun byKey(key: String?): WearPalette = all.firstOrNull { it.key == key } ?: clay
 }
 
-/** 手表端可调的几项：配色、今日是否折叠已结束的课、首页是否画进度环。 */
+/** 手表端可调的几项：配色、今日是否折叠已结束的课、首页是否画进度环、调试模式。 */
 data class WearSettings(
     val palette: WearPalette = WearPalettes.clay,
     val hideFinished: Boolean = false,
-    val showRing: Boolean = true
+    val showRing: Boolean = true,
+    val debug: Boolean = false
 )
 
 object SettingsStore {
@@ -37,6 +38,7 @@ object SettingsStore {
     private const val KEY_PALETTE = "palette"
     private const val KEY_HIDE_FINISHED = "hideFinished"
     private const val KEY_SHOW_RING = "showRing"
+    private const val KEY_DEBUG = "debug"
 
     private var appContext: Context? = null
 
@@ -50,7 +52,8 @@ object SettingsStore {
         _settings.value = WearSettings(
             palette = WearPalettes.byKey(prefs.getString(KEY_PALETTE, null)),
             hideFinished = prefs.getBoolean(KEY_HIDE_FINISHED, false),
-            showRing = prefs.getBoolean(KEY_SHOW_RING, true)
+            showRing = prefs.getBoolean(KEY_SHOW_RING, true),
+            debug = prefs.getBoolean(KEY_DEBUG, false)
         )
     }
 
@@ -67,6 +70,11 @@ object SettingsStore {
     fun setShowRing(value: Boolean) {
         update { it.copy(showRing = value) }
         persist { putBoolean(KEY_SHOW_RING, value) }
+    }
+
+    fun setDebug(value: Boolean) {
+        update { it.copy(debug = value) }
+        persist { putBoolean(KEY_DEBUG, value) }
     }
 
     private fun update(block: (WearSettings) -> WearSettings) {

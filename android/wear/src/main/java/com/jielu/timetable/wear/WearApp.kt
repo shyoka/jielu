@@ -2,9 +2,12 @@ package com.jielu.timetable.wear
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +28,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +43,7 @@ import com.jielu.timetable.wear.data.SettingsStore
 import com.jielu.timetable.wear.ui.AgendaScreen
 import com.jielu.timetable.wear.ui.CourseDetailScreen
 import com.jielu.timetable.wear.ui.DayScreen
+import com.jielu.timetable.wear.ui.DebugBus
 import com.jielu.timetable.wear.ui.JieluColors
 import com.jielu.timetable.wear.ui.JieluWearTheme
 import com.jielu.timetable.wear.ui.NowScreen
@@ -50,6 +55,7 @@ import com.jielu.timetable.wear.ui.WeekScreen
 import java.time.LocalDate
 import kotlin.math.abs
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 private const val PAGE_COUNT = 4
 
@@ -129,7 +135,13 @@ fun WearApp() {
                             }
                     ) {
                         when (page) {
-                            0 -> NowScreen(data, loading, settings.showRing)
+                            0 -> NowScreen(
+                                data = data,
+                                loading = loading,
+                                showRing = settings.showRing,
+                                // 停稳在当前页才播“进入”动画；滑走再回来会重新来一遍
+                                visible = pagerState.settledPage == 0
+                            )
                             1 -> AgendaScreen(
                                 data = data,
                                 loading = loading,
@@ -147,7 +159,8 @@ fun WearApp() {
                                 onOpen = {
                                     settingsNotice = ""
                                     overlay.add(OverlayScreen.Setting(it))
-                                }
+                                },
+                                onNotice = { settingsNotice = it }
                             )
                         }
                     }
@@ -202,7 +215,11 @@ fun WearApp() {
     }
 }
 
-/** 页点贴在表盘底边，避开顶部 TimeText；首屏且没滑动时隐藏，保持干净。 */
+/**
+ * 页点贴在表盘底边，避开顶部 TimeText。
+ *
+ * 平时不出现：只有翻页时亮起，停稳 1.9 秒后淡出。调试模式可以手动点亮一次。
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PageDots(
@@ -212,12 +229,33 @@ private fun PageDots(
 ) {
     // 状态在这里读，翻页时只重组这一行圆点，不牵动 Pager 里的页面
     val current = pagerState.currentPage
-    val scrolling = pagerState.isScrollInProgress
+    val flash by DebugBus.dotsFlash.collectAsState()
+    var revealed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.isScrollInProgress }.collectLatest { scrolling ->
+            if (scrolling) {
+                revealed = true
+            } else {
+                delay(1900)
+                revealed = false
+            }
+        }
+    }
+    // 动画实验室的「闪一下页点」
+    LaunchedEffect(flash) {
+        if (flash > 0) {
+            revealed = true
+            delay(2200)
+            revealed = false
+        }
+    }
+
     AnimatedVisibility(
-        visible = visible && (current != 0 || scrolling),
+        visible = visible && revealed,
         modifier = modifier,
-        enter = fadeIn(tween(160)),
-        exit = fadeOut(tween(160))
+        enter = fadeIn(tween(140)) + slideInVertically(spring(dampingRatio = 0.8f, stiffness = 380f)) { it / 2 },
+        exit = fadeOut(tween(320)) + slideOutVertically(tween(260)) { it / 2 }
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
