@@ -274,8 +274,9 @@
     issues: "https://github.com/shyoka/jielu/issues",
     profile: "https://github.com/shyoka",
     license: "MIT",
-    // 手表安装包与手机包放在同一发布页，latest 永远指向最新一版
-    wearRelease: "https://github.com/shyoka/jielu/releases/latest",
+    // 手表包单独发在 wear-* 的 tag 下。用 latest 会落到最近一次发布（多半是手机版），
+    // 所以这里钉住手表自己的那一版；手表发新版时改这一行。
+    wearRelease: "https://github.com/shyoka/jielu/releases/tag/wear-v1.6.0",
     version: "1.6.1"
   };
 
